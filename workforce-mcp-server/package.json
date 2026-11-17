@@ -1,0 +1,22 @@
+{
+  "name": "workforce-mcp-server",
+  "version": "1.0.0",
+  "description": "Local MCP server for Claude Code that builds, runs, and tests AI agents, tools, workforces, and knowledge tables.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node test/run-tests.js",
+    "docs": "node scripts/gen-docs.js"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2"
+  },
+  "type": "module",
+  "bin": {
+    "workforce-mcp-server": "src/server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
