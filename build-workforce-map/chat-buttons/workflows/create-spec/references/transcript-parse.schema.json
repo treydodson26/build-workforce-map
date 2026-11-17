@@ -1,0 +1,277 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/schemas/evidence-first-transcript-parse.schema.json",
+  "title": "Evidence-First Transcript Parse",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "parser",
+    "source",
+    "platform",
+    "messages",
+    "exchanges",
+    "units",
+    "summary",
+    "top_terms",
+    "metrics",
+    "validation"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "parser": {
+      "type": "object",
+      "required": [
+        "name",
+        "version",
+        "nltk_version",
+        "sentence_tokenizer",
+        "word_tokenizer",
+        "generated_at"
+      ],
+      "additionalProperties": true
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "original_path",
+        "suffix",
+        "original_sha256",
+        "original_bytes",
+        "extracted_text_sha256",
+        "extraction_basis",
+        "warnings"
+      ],
+      "additionalProperties": true
+    },
+    "platform": {
+      "type": "object",
+      "required": [
+        "detected",
+        "scores",
+        "adapter_metadata"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "detected": {
+          "type": "string"
+        },
+        "scores": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "adapter_metadata": {
+          "type": "object"
+        }
+      }
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "message_id",
+          "sequence",
+          "role",
+          "speaker",
+          "text",
+          "source_line_start",
+          "source_line_end",
+          "source_char_start",
+          "source_char_end",
+          "source_hash",
+          "platform"
+        ],
+        "additionalProperties": true
+      }
+    },
+    "exchanges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "exchange_id",
+          "user_message_id",
+          "response_message_ids"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "exchange_id": {
+            "type": "string"
+          },
+          "user_message_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "response_message_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "units": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "unit_id",
+          "message_id",
+          "role",
+          "speaker",
+          "unit_type",
+          "text",
+          "source",
+          "metrics",
+          "classification"
+        ],
+        "additionalProperties": true,
+        "properties": {
+          "unit_id": {
+            "type": "string"
+          },
+          "message_id": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "speaker": {
+            "type": "string"
+          },
+          "unit_type": {
+            "enum": [
+              "sentence",
+              "heading",
+              "list_item",
+              "table_row",
+              "code_block"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source": {
+            "type": "object",
+            "required": [
+              "line_start",
+              "line_end",
+              "char_start",
+              "char_end",
+              "quote_hash"
+            ],
+            "additionalProperties": true
+          },
+          "metrics": {
+            "type": "object",
+            "required": [
+              "token_count",
+              "word_count"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "token_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "word_count": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "classification": {
+            "type": "object",
+            "required": [
+              "labels",
+              "scores",
+              "salience",
+              "provenance"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "labels": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "scores": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number"
+                }
+              },
+              "salience": {
+                "type": "number"
+              },
+              "provenance": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "core_intent",
+        "user_requirements",
+        "assistant_proposals",
+        "decisions",
+        "acceptance_criteria",
+        "tools_and_commands",
+        "artifacts_and_outputs",
+        "action_items",
+        "process_steps",
+        "risks",
+        "assumptions",
+        "source_references",
+        "answered_questions",
+        "open_questions",
+        "suggested_followups",
+        "chronological_evolution"
+      ],
+      "additionalProperties": true
+    },
+    "top_terms": {
+      "type": "array"
+    },
+    "metrics": {
+      "type": "object",
+      "required": [
+        "message_count",
+        "exchange_count",
+        "unit_count",
+        "sentence_unit_count",
+        "structural_unit_count",
+        "token_count",
+        "word_count",
+        "role_counts",
+        "classification_counts"
+      ],
+      "additionalProperties": true
+    },
+    "validation": {
+      "type": "object",
+      "required": [
+        "status",
+        "errors",
+        "warnings",
+        "checks",
+        "unaccounted_nonempty_lines"
+      ],
+      "additionalProperties": true
+    }
+  }
+}

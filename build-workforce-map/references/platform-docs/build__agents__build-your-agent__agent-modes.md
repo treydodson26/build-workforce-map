@@ -1,0 +1,106 @@
+# The platform docs: `build/agents/build-your-agent/agent-modes/`
+
+1 pages, downloaded on 11/16/2026.
+
+
+---
+
+# Page: Phone Agents
+
+Path: `build/agents/build-your-agent/agent-modes/phone-calls`.
+
+## Phone Agents
+
+> Agents that can speak, listen, and take action during a call
+
+A Phone Agent is a type of agent that can make outbound calls on your behalf. During a call, it speaks naturally with the person on the other end while also being able to take action — running tools, looking up information, and responding based on what it hears in real-time. This makes it useful for tasks like outbound sales, appointment reminders, or any workflow where a voice interaction is part of the process.
+
+### Creating a Phone Agent
+
+There are two ways to create a Phone Agent:
+
+* From the **Agents** tab, click **Phone** to create one directly.
+* Click **+ New Agent** from the Agents tab and select **Phone** as the agent type.
+
+<Info>
+  Your Phone Agent can use tools during a call, but doing so will pause the conversation while the tool runs. To keep calls smooth, we recommend adding your Phone Agent to a [Workforce](build__workforces.md) (page `build/workforces/create-a-workforce`) so a parent agent can complete any research or data gathering before the call starts.
+</Info>
+
+### Phone Agent settings
+
+#### Greeting
+
+| Setting                     | Description                                                                                                                                                                                          |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| First message mode          | How the agent behaves at the start of the call. Options: agent speaks first with a model-generated message, agent speaks first with a message you write, or agent waits for the user to speak first. |
+| First message               | The first thing your agent says to start the conversation.                                                                                                                                           |
+| First message interruptions | When enabled, allows the user to interrupt the agent’s first message.                                                                                                                                |
+
+#### Outbound phone number
+
+<CardGroup cols="3">
+  <Card title="Provided by the platform" icon="phone">
+    Pick a phone number provided by the platform.
+  </Card>
+
+  <Card title="Twilio" icon="phone-arrow-up-right">
+    If you have integrated Twilio in Integrations & API Keys, select a Twilio phone number.
+  </Card>
+
+  <Card title="Based on country code" icon="earth-americas">
+    Automatically selects the appropriate phone number based on the country code of the number being called. Configure country mappings and set a default fallback for all others.
+  </Card>
+</CardGroup>
+
+### Voice and transcription
+
+| Setting              | Description                                                                           |
+| -------------------- | ------------------------------------------------------------------------------------- |
+| Voice provider       | The service powering your agent’s voice on calls. Currently supports ElevenLabs only. |
+| Voice model          | The voice model your agent uses when speaking.                                        |
+| Agent voice          | The specific voice your agent uses when speaking.                                     |
+| Voice speed          | Adjusts the speaking speed of the agent’s voice.                                      |
+| Background sound     | Adds a background sound to the call.                                                  |
+| Transcriber provider | The service for speech recognition. Currently supports Deepgram only.                 |
+| Transcriber model    | The model used for speech recognition.                                                |
+| Transcriber language | The language for speech recognition.                                                  |
+| Background denoising | Enables background noise reduction while the user is speaking.                        |
+
+### Call behavior
+
+| Setting             | Description                                                                                               |
+| ------------------- | --------------------------------------------------------------------------------------------------------- |
+| End call            | Allows the agent to end the call when appropriate.                                                        |
+| Silence timeout     | Number of seconds of silence before ending the call. Maximum 3600 seconds.                                |
+| Voicemail detection | Enables the agent to detect and respond to voicemail. Set the message it says when voicemail is detected. |
+| Audio recording     | Enables recording of the phone call.                                                                      |
+| Summary prompt      | Enables automatic call summary generation. Customize the prompt used to generate summaries.               |
+
+### Call transcripts
+
+After a call completes, the transcript is available in the call record.
+
+| Action              | Description                                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------------------------ |
+| Download transcript | Saves the transcript as a file to your device.                                                         |
+| Copy transcript     | Copies the full transcript to your clipboard. A “Copied!” confirmation appears briefly after clicking. |
+| Download recording  | Saves the audio recording of the call to your device. Only available if audio recording is enabled.    |
+
+***
+
+### Follow along on YouTube
+
+#### Getting started with voice agents
+
+<Frame caption="In this video, our Product Manager, Josh Jackson, will show you how to create your own Voice Agent in the platform.">
+  <iframe className="w-full aspect-video rounded-xl" src="https://www.youtube.com/embed/TxDqhn-fWf0" title="YouTube video player" />
+</Frame>
+
+***
+
+#### Building a customer support Phone Agent
+
+<Frame caption="Learn how to build an AI phone agent that answers customer questions, researches issues, reads screenshots, checks tickets, and escalates to humans when needed.">
+  <iframe className="w-full aspect-video rounded-xl" src="https://www.youtube.com/embed/I-qlDMpDKkA" title="Build an AI Phone Agent for Customer Support (Full Demo)" />
+</Frame>
+

@@ -1,0 +1,62 @@
+# The platform docs: `admin/`
+
+1 pages, downloaded on 11/16/2026.
+
+
+---
+
+# Page: System quotas
+
+Path: `admin/system-limits`.
+
+## System quotas
+
+> Maximum system resource allocations
+
+The platform provides a variety of resources from space to temporarily or permanently store data to in-cloud analysis resources.
+
+Below is a brief overview of maximum system resource allocations:
+
+### Maximum allowed file size
+
+| Resource                                    | Quota  |
+| ------------------------------------------- | ------ |
+| Upload space                                | 100 MB |
+| Upload space for CSV file - number of rows  | 50 K   |
+| Upload space for raw text size as knowledge | 10 MB  |
+
+### Maximum allowed run time
+
+| Resource                      | Quota      |
+| ----------------------------- | ---------- |
+| Tools (15 minutes)            | 15 minutes |
+| Tools (24 hour)               | 24 hours   |
+| Tools (deprecated)            | 15 minutes |
+| Agents after each user action | 15 minutes |
+| Bulk run                      | 24 hours   |
+
+### Concurrent Tasks
+
+In the context of the platform, task concurrency refers to the number of tasks that can be executed simultaneously by an agent. This is an important consideration for performance, especially when dealing with webhooks, multi-agent systems, and high-volume scenarios.
+
+Concurrency limits are determined by your subscription tier. Each tier provides different capacity for concurrent agent tasks, with higher tiers offering increased capacity to support more simultaneous operations. Enterprise plans can include custom concurrency limits tailored to your specific needs.
+
+<Note>
+  Each subscription tier includes a specific concurrent task capacity. If you need higher capacity for your use case, upgrading your subscription tier provides increased concurrent task limits. For Enterprise plans with custom requirements, please book a demo with our sales team to discuss your specific needs.
+</Note>
+
+#### How It Works
+
+* The number of concurrent tasks you are allowed is determined by your subscription tier, **not** the type of trigger (webhook, API, or scheduled).
+* When your tier’s capacity is reached, additional tasks will be queued until resources become available.
+
+#### Monitoring Your Concurrency Usage
+
+To monitor your real-time concurrency usage, view the concurrency usage chart in **Settings > Plan & Billing**. This time-series chart shows how many tasks are running simultaneously across your Organization, helping you identify peak usage periods and determine when you might need to upgrade for higher capacity.
+
+Learn more about monitoring concurrency usage
+
+#### Additional Resources
+
+For a detailed comparison of subscription tiers and their respective features, please refer to our Pricing Page.
+

@@ -1,0 +1,104 @@
+---
+title: Integration Setup
+description: Entry point for detecting and resolving missing OAuth accounts and API keys required by tools. Use when attaching tools to agents, diagnosing auth failures, or before triggering agents.
+---
+
+# Integration Setup
+
+Tools authenticate with external services in one of two ways. This doc is the router — use the tools below to detect what's missing, then jump to the right deep-dive.
+
+## OAuth vs API keys
+
+|                       | **OAuth**                                                                        | **API keys**                                                                                                  |
+| --------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Scope                 | Per tool parameter — the user picks an account for each tool                     | Per project/org — one key is reused by every tool that needs that provider                                    |
+| Tool schema           | Declared as a `params_schema` property with `content_type: "oauth_account"`      | Declared by the underlying transformation, not by the tool itself — so it does not appear as a tool parameter |
+| Where users configure | Integrations page → OAuth provider drawer (login flow)                           | Integrations page → API key provider drawer (paste secret)                                                    |
+| Tools can auto-fill   | Yes — `attach_tools_to_agent` sets the account ID as the param default | No — the key is looked up at runtime from the project/org                                                     |
+
+> **❌ Either way, the user configures the credential on the Integrations page — never in the conversation.** Don't ask them to paste, type, or send a key or token to you, and never write one into a tool definition; hand them the `setup_url` below instead. For the authoring side, see the credential ladder in [creating.md](creating.md#using-secrets-in-code-steps).
+
+## When to Check
+
+- **After `attach_tools_to_agent`** — its `integration_warnings` lists tools needing OAuth or API keys.
+- **When tools fail** — errors like `"You need to add your chains_xxx_api_key"` or `"Invalid OAuth account"` indicate missing integrations.
+- **Before triggering an agent** — verify integrations are configured so the run doesn't fail mid-conversation.
+- **When investigating an already-failed task or run** — if the root cause is a missing or wrong OAuth account / API key, fetch the connect link here rather than describing the Integrations page in prose.
+
+## Detecting missing integrations
+
+```typescript
+check_tool_integration_requirements({
+  tool_ids: ['tool-id-1', 'tool-id-2'],
+  agent_id: 'agent-xxx', // optional — adds per-tool config_url
+});
+```
+
+Response shape (trimmed):
+
+```json
+{
+  "tools": [
+    {
+      "studio_id": "tool-id-1",
+      "title": "Search HubSpot Contacts",
+      "oauth_requirements": [
+        {
+          "provider": "hubspot",
+          "status": "missing",
+          "setup_url": "<your-server-url>"
+        }
+      ],
+      "api_key_requirements": [
+        {
+          "provider": "firecrawl",
+          "provider_label": "Firecrawl API Key",
+          "status": "missing",
+          "has_platform_key": false,
+          "setup_url": "<your-server-url>"
+        }
+      ]
+    }
+  ],
+  "action_required": true,
+  "missing_oauth": [
+    /* deduped by provider across all tools */
+  ],
+  "missing_api_keys": [
+    /* deduped by provider across all tools */
+  ],
+  "setup_url": "<your-server-url>"
+}
+```
+
+**Status values:**
+
+- `configured` — user or org already has a key/account; tool will work.
+- `platform_key_available` (API keys only) — platform has a shared key fallback; the tool will work, user can optionally add their own.
+- `missing` — user action required. Send them the entry's `setup_url`.
+
+Only `missing` is a user action. `platform_key_available` means platform supplies the key — don't send a setup link and don't design around it. See [api-keys.md](api-keys.md#whose-credential-is-it).
+
+## Directing the user
+
+Always prefer the per-entry `setup_url` over the top-level one — it opens the provider's drawer directly. For API keys, show the `provider_label` (e.g. "Firecrawl API Key"), never the raw `provider` identifier.
+
+Surface `setup_url` as a **clickable link** the user can click straight through — never paraphrase it as navigation steps ("go to Integrations, find X, click Connect"). The link opens the exact provider drawer; prose just makes the user hunt for it.
+
+> Your tool _"Search HubSpot Contacts"_ needs a HubSpot OAuth connection. Please connect here: {setup_url}
+
+After the user reports they've added it, re-run `check_tool_integration_requirements` to verify. `check_api_key_availability` lists only keys already saved, so it can confirm an addition — never that a key is missing.
+
+## What next
+
+- **API-key specifics** — multi-key providers (Twilio, AWS Bedrock, Azure OpenAI, GCP Vertex, Marketo, ZoomInfo), LLM platform-key semantics, common error strings, and `provider_label` guidance → see [api-keys.md](api-keys.md).
+- **OAuth param authoring** — how to declare `content_type: "oauth_account"`, choose which account to use, and set it on an agent's tool → see [oauth.md](oauth.md).
+
+## Quick Reference
+
+| Tool                                            | Purpose                                                                                                                |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `check_tool_integration_requirements` | Check what integrations tools need, cross-referenced against configured ones                                           |
+| `check_api_key_availability`          | List the keys already saved at project/org level — an inventory, not a requirements check; it cannot see platform keys |
+| `list_oauth_accounts`                 | List connected OAuth accounts                                                                                          |
+| `list_integration_providers`          | List available integration providers                                                                                   |

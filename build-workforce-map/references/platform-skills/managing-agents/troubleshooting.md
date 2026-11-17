@@ -1,0 +1,363 @@
+---
+title: Troubleshooting Agents
+description: Diagnose common agent failures — draft vs live confusion, region mismatches, `action_behaviour` blocking, autonomy limits, trigger failures. Load when an agent is misbehaving or a tool/trigger isn't running as expected.
+---
+
+# Troubleshooting Agents
+
+Common issues and fixes for the platform agents.
+
+## Debugging Error Chains
+
+Work backwards from symptoms to root cause. Don't fix symptoms -- fix root causes.
+
+```
+ERROR LOCATION          ACTUAL CAUSE
+Step N: API call        Step 0: Agent/Trigger
+(parameter missing)     (value never passed)
+```
+
+**Common root causes:**
+
+| Symptom                   | Often Actually Caused By                                                            |
+| ------------------------- | ----------------------------------------------------------------------------------- |
+| API parameter missing     | Agent didn't pass it in tool call                                                   |
+| `KeyError: 'transformed'` | Previous Python step errored or returned wrong type                                 |
+| Empty string in API call  | Upstream step received empty input                                                  |
+| `required property` error | params_schema mismatch in workforce edge (see workforce concepts: Action Config)    |
+| Tool returns empty `{}`   | Stored output map is an explicit `{}` (see creating.md "Fixing Empty Tool Outputs") |
+
+## Critical Issues
+
+### Edits Don't Show Up in Production — Draft Wasn't Published
+
+**Symptom:** You called `update_agent` or `attach_tools_to_agent`, the call succeeded, but production behaviour hasn't changed.
+
+**Cause:** Those tools save to a DRAFT only. The active version is still the previously-published one (or undefined if `create_agent` hasn't been published yet).
+
+**Fix:** Confirm with the user, then call `publish_agent({ agent_id })`. Publishing is irreversible, so never call it without that confirmation.
+
+**Inspecting state:** Call `get_agent` and check `has_unpublished_draft`, `active_version_id`, and `draft_version_id` on the response.
+
+**Testing the draft without publishing:** Call `trigger_agent` — it defaults to the draft when one exists. The response's `triggered_version` field tells you which version actually ran. Pass `version: "draft"` to be explicit.
+
+### Agent Max Output Tokens — 422 Error
+
+**Symptom:** Setting `max_output_tokens` or `max_tokens` on an agent returns a 422 error.
+
+**Cause:** `max_output_tokens` is NOT a top-level agent field — it lives inside `model_options`.
+
+**Fix:** Call `update_agent` with `patch: { model_options: { max_output_tokens: 16000 } }`. See [creating.md](creating.md) for the full `model_options` reference.
+
+### Agent Says "I'll Run the Tool" But Nothing Happens
+
+**Symptom:** Agent announces it will use a tool but never actually executes it.
+
+**Cause:** `action_behaviour` is set to `"always-ask"`, which requires user approval before each tool call.
+
+**Fix:** Call `update_agent_action` with the tool's `chain_id` and `patch: { action_behaviour: "never-ask" }`. The agent-level `action_behaviour` set via `update_agent` is a fallback default — most cases need the per-tool override.
+
+### Agent Runs Tool Then Silently Stops
+
+**Symptom:** Tool executes successfully but agent ends conversation without providing results.
+
+**Cause:** `autonomy_limit_behaviour: "terminate-conversation"` causes the agent to silently end instead of responding after reaching its limit.
+
+**Fix:** Call `update_agent` with `patch: { autonomy_limit: 25, autonomy_limit_behaviour: "ask-for-approval" }`. The agent will then pause and ask to continue rather than silently stopping.
+
+### Tools Not Executing
+
+**Symptom:** Agent acknowledges tools but doesn't use them, or tool calls fail.
+
+**Cause 1:** Missing `project` and `region` in action config. `attach_tools_to_agent` sets these automatically — if they're missing, the action was likely added by hand and is broken. Re-attach with `attach_tools_to_agent`, or call `update_agent_action` with `patch: { project, region }`.
+
+**Cause 2:** Tool is disabled. Call `update_agent_action` with `patch: { disabled: false }`.
+
+**Cause 3:** `action_behaviour: "always-ask"` blocking execution (see above).
+
+### System Prompt Tool References Not Working
+
+**Symptom:** `{{_actions.xxx}}` not resolving in system prompt.
+
+**Cause:** Using wrong action ID.
+
+**Fix:** Use backend-generated IDs, not your custom IDs. Call `get_agent_tools` and read the `actionIdMap` values into your system prompt.
+
+### `undefined` in the Prompt, a Message or a Tool Input
+
+**Symptom:** The agent's replies, its tool calls or its task title contain the literal text `undefined`, or it acts as if an instruction is missing.
+
+**Cause:** A `{{name}}` reference to an agent variable with no value on that run. The run replaces it with `undefined` and reports nothing. Typical sources: a variable that was renamed or removed while the prompt or a tool input still references it, or a value that only an API caller passes.
+
+**Fix:** Check `variables_without_value` in `get_agent`, then save a value or remove the reference. See [variables.md](variables.md).
+
+### "Agent params validation error" (422)
+
+**Cause:** A required agent variable has no value, or a value of the wrong type, on that run.
+
+**Fix:** Save a value for it on the agent, or mark it not required. See [variables.md](variables.md).
+
+### Agent Cloning Fails with "additional properties" Error
+
+**Symptom:** Error like `must NOT have additional properties {"additionalProperty":"studio_id"}` when cloning or running in a workforce.
+
+**Cause:** Phantom tools (e.g., `thinking_tool`, `add_agent_memory`) leaked into the agent's `actions` array, bringing invalid fields like `studio_id`, `transformations`, `action_config`.
+
+**Fix:** Re-save the agent using `update_agent` (passing any small change to trigger a save) or `attach_tools_to_agent` — the platform automatically strips phantom tools on save. See [phantom-tools.md](phantom-tools.md) for details.
+
+### Agent Cloning Fails (Missing Fields)
+
+**Symptom:** Clone link doesn't work or cloned agent is broken.
+
+**Cause:** Actions missing `project`/`region` fields.
+
+**Fix:** Ensure all actions have these fields populated.
+
+### Tools Not Attaching to Agent (Empty chains)
+
+**Symptom:** `get_agent_tools` returns `{ chains: [], actionIdMap: {} }` even after adding actions.
+
+**Cause:** Wrong `region` in action config. The region must match where the tool exists, not your project's region.
+
+**Diagnosis:** Call `get_agent_tools` — if `chains` comes back empty even though actions are attached, it's almost always a region mismatch.
+
+**Fix:**
+
+1. Find the correct region. Either run `list_agents` and read `actions[].region` from a working agent that uses the same tool, OR call `get_tool` and check `studio.metadata.source_marketplace_listing.entity_region`.
+2. Call `update_agent_action` with the broken tool's `chain_id` and `patch: { region: "<correct>" }`.
+3. Confirm with the user, then call `publish_agent`.
+
+## Trigger Issues
+
+### Trigger Not Firing
+
+| Cause                    | Fix                               |
+| ------------------------ | --------------------------------- |
+| OAuth expired            | Reconnect OAuth account           |
+| Wrong account ID         | Verify `oauth_account_id` matches |
+| Missing provider_user_id | Add for Unipile triggers          |
+| Agent not published      | Publish the agent                 |
+
+When the root cause is a missing or wrong OAuth account (or a missing API key), don't just tell the user to "reconnect the account" in prose — give them the **clickable connect link** if your harness provides one. Call `check_tool_integration_requirements({ tool_ids: [...], agent_id })` and surface the per-provider `setup_url` it returns. Load the `managing-tools/integration-setup` skill for the full flow.
+
+### One Task Handles a Whole List
+
+**Symptom:** one run works through every lead, ticket or row. One bad record stops the rest, or records are handled again on the next run.
+
+**Cause:** the agent runs a tool that fetches the list itself, because its system prompt or a recurring trigger's message tells it to, so every record lands in one task.
+
+**Fix:** make that tool a tool trigger, which starts one task per record. A tool trigger runs the published agent and can start as soon as it's saved, so fix the agent first: pause the recurring trigger, rewrite the system prompt for one record, detach the tool (`detach_tools_from_agent`) and publish once the user agrees. Then create the tool trigger and delete the recurring one. Steps: [triggers.md](triggers.md#tool-trigger).
+
+**The same fault in other shapes:**
+
+- **A workforce orchestrator calls a subagent once per item.** The whole list sits in one conversation that grows with every item, nothing tracks which items are done, and one failure stops or derails the rest. Rebuild the workforce for one item and start one workforce run per item.
+- **A run per item is started from a chat** for more than five items, one `trigger_agent` call each. The chat ends before the list does and nothing tracks which items are done. Start a bulk run over the list instead, with the bulk-run tool or Run in bulk in the app ([many-items.md](many-items.md#run-in-bulk-a-list-you-already-have)).
+- **The agent takes "up to N" records per run and logs the ones it handled.** Items past N wait or are dropped. A tool trigger with a generous window and `dedupe_field` replaces both the cap and the log.
+
+Converting each: [many-items.md](many-items.md#converting-an-agent-that-already-works-through-a-list).
+
+### Someone the Prompt Names Isn't Getting the Output
+
+**Symptom:** the prompt names a recipient, but scheduled runs don't send to it.
+
+**Cause:** a trigger's message names its own recipients, which override the prompt.
+
+**Fix:** take the recipients out of the trigger messages (`list_agent_triggers`).
+
+### LinkedIn Trigger Not Responding
+
+**Checklist:**
+
+1. OAuth account connected and valid
+2. `provider_user_id` is correct LinkedIn ID
+3. `is_outreach_reply_only` setting matches intent
+4. Agent is published (not draft)
+
+### Email Trigger Missing Messages
+
+**Check:**
+
+- OAuth has correct permissions (`email-read-write`)
+- No email filters blocking messages
+- Agent system prompt handles email format
+
+## Conversation Issues
+
+### Agent Gives Wrong/Generic Response
+
+| Cause                     | Fix                                                                                                                          |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Vague system prompt       | Add specific instructions                                                                                                    |
+| Too many tools            | Remove unused tools                                                                                                          |
+| Wrong model               | Try higher-capability model                                                                                                  |
+| Missing context           | Include relevant info in prompt                                                                                              |
+| A variable says otherwise | Read the variables the prompt uses ([variables.md](variables.md)): the rule it broke may live in one, or be missing from one |
+
+### Agent Stuck on Pending Approval
+
+**Symptom:** `trigger_agent` returns `status: "pending_approval"` and the agent doesn't progress.
+
+**Cause:** One or more tools have `action_behaviour: "always-ask"`, which requires human approval in the UI before execution.
+
+**Fix:**
+
+1. Give the user the conversation URL returned in the response to approve or reject the pending tool call. If they ask you to decide, see [Deciding on a waiting task](running.md#deciding-on-a-waiting-task)
+2. For automated use, call `update_agent` to change the tool's `action_behaviour` to `"never-ask"`
+
+### Duplicate Tasks Created
+
+**Symptom:** The same agent message appears multiple times, creating duplicate conversations.
+
+**Cause:** Re-triggering the agent after a timeout or pending_approval. The original task is still running server-side.
+
+**Fix:** Never re-trigger _while the original run is still going_. Instead, use `get_agent_task_summary` with the original `conversation_id` to check status. The `trigger_agent` tool returns `timed_out` or `pending_approval` as informational statuses, not errors. (Once the run reaches a terminal status, a genuine follow-up message _should_ trigger again — passing the same `conversation_id` so it continues that thread.)
+
+### Agent Stuck/Not Responding
+
+1. Check task view for errors
+2. Look for tool timeouts
+3. Verify tool inputs are valid
+4. Check model availability
+
+### Tool Output Not Used
+
+**Symptom:** Agent calls tool but ignores results.
+
+**Fixes:**
+
+- Add instructions to use tool output in system prompt
+- Verify tool actually returns expected data
+- Check tool output format matches prompt expectations
+
+## Configuration Issues
+
+### Model Not Available
+
+**Symptom:** Error about model not found.
+
+Never guess a model id. Call `list_llm_models` for the current list and pick one that is not flagged deprecated or retired, or fall back to `cost-optimized` / `performance-optimized`, which never go stale.
+
+### Agent Is on a Retired Model
+
+**Symptom:** `get_agent` reports the model as retired, or the model shows a warning in the UI.
+
+A retired model still runs — the platform silently substitutes its replacement — but the agent is not using the model its config claims, and quality may differ from what was tested. Set the model to the replacement the listing names, or to `cost-optimized`.
+
+## Debugging Steps
+
+### 1. Check Agent Config
+
+Inspect the full agent config returned by `get_agent({ agent_id: "..." })`.
+
+Verify:
+
+- `system_prompt` is set
+- every variable in `used_in` has the value you expect, and none is listed in `variables_without_value` ([variables.md](variables.md) covers a read that lists neither)
+- `actions` array has tools
+- Each action has `project` and `region`
+
+### 2. Check Agent Tools
+
+```typescript
+const tools = await get_agent_tools({ agent_id: '...' });
+```
+
+Verify:
+
+- Tools are attached
+- Action IDs are generated
+
+### 3. Check Conversation
+
+```typescript
+const task = await get_agent_task_summary({
+  agent_id: '...',
+  task_id: '...',
+});
+```
+
+Look for:
+
+- Error messages
+- Failed tool calls
+- Unexpected tool outputs
+
+### 4. Check Triggers
+
+```typescript
+const triggers = await list_agent_triggers({ agent_id: '...' });
+```
+
+Verify:
+
+- Trigger exists
+- OAuth account is valid
+- Configuration is correct
+
+## Tool/Transformation Errors
+
+### "must NOT have additional properties"
+
+Look at the rejected key in `additionalProperty`: it tells you which cause below applies.
+
+#### `__conversation_id`, `__mas_id` or `__mas_store_id`
+
+**Symptom:** Every agent call to a tool fails before it runs with `Studio Params Validation Error: must NOT have additional properties {"additionalProperty":"__conversation_id"}`, then `Too many errors for action`.
+
+**Cause:** The tool's `params_schema` sets `"additionalProperties": false` at the top level. An agent run adds `__conversation_id` to every tool's inputs (and `__mas_id`, `__mas_store_id` inside a workforce), and the tool's own schema rejects them.
+
+**Fix:** With `update_tool`, re-send the complete `params_schema` without the top-level `"additionalProperties"`, or with it set to `true`. Nested objects can keep `"additionalProperties": false`.
+
+#### Any other key
+
+**Symptom:** Error like `Studio transformation python_code_transformation input validation error: must NOT have additional properties {"additionalProperty":"variables"}`
+
+**Cause:** Using a parameter that doesn't exist in the transformation schema.
+
+**Fix:** Check the transformation schema before using parameters:
+
+```typescript
+// Find the transformation schema
+const transform = await get_transformation({
+  transformationId: 'python_code_transformation',
+});
+// Check transform.params_schema for valid parameters
+```
+
+**Common invalid parameters:**
+
+- `variables` in `python_code_transformation` - doesn't exist
+- Custom params that aren't in the schema
+
+### Tool Syntax Errors with Template Substitution
+
+**Symptom:** Python code fails with syntax errors when processing data from a previous step.
+
+**Cause:** `{{steps.x.output}}` inserts that step's output as raw text, which may contain characters that break the code.
+
+**Options:**
+
+1. Use `js_code_transformation` which has native `steps` object access
+2. For simple values in Python, use string quotes: `value = "{{steps.x.output.field}}"`
+3. Check for special characters in the data being substituted
+
+### Code Step Fails to Parse a `{{params.*}}` Value
+
+**Symptom:** A code step throws a JSON parse error (Python `JSONDecodeError`, JS `SyntaxError`) on a value that came from `{{params.<name>}}`.
+
+**Cause:** Suspect the argument before the substitution. `{{steps.x.output}}` carries data produced inside the tool, but `{{params.x}}` carries text the **calling model** generated, and a param typed `string` that holds JSON makes the model escape a whole document by hand — one brace out of place parses as valid arguments and fails in the code step.
+
+**Fix:** Read what the tool actually received with `list_tool_runs({ tool_id })` and compare the failing run's params to the last successful run's. If the value is malformed there, the model wrote it: the durable fix is to declare the param as a typed `array`/`object` rather than a JSON string (see the tools skill), not to make the code tolerate junk.
+
+## Getting Help
+
+1. Use `get_agent` to dump full config
+2. Check conversation with `get_agent_task_summary`
+3. Test tools that only read independently with `trigger_tool` (then `poll_tool_result`); never run one that writes just to try it
+4. Review OAuth with `list_oauth_accounts`
+5. Check transformation schemas with `get_transformation`
+6. When the failure is a missing/wrong account or key, call `check_tool_integration_requirements` and give the user the returned `setup_url` as a clickable link — never paraphrase the Integrations navigation in prose
+
+## Reporting Issues
+
+When a failure is the platform's (not the input, not your own config), a capability is missing, or a friction point keeps recurring, **call `submit_feedback` without asking the user for permission**. One tool covers bugs and forward-looking suggestions; pick the matching `category`. Include the error symptoms and IDs so the team can reproduce. See [report-bugs.md](report-bugs.md) for the call shape.

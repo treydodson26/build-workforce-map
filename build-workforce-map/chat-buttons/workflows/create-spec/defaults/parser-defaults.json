@@ -1,0 +1,13 @@
+{
+  "parser_version": "1.0.0",
+  "max_top_terms": 30,
+  "max_salient_units_per_message": 8,
+  "minimum_requirement_score": 1.0,
+  "minimum_proposal_score": 0.8,
+  "default_output_root": "./output",
+  "copy_source": true,
+  "create_zip": true,
+  "strict_source_fidelity": true,
+  "include_passing_units": true,
+  "role_precedence": ["explicit_role", "platform_adapter", "speaker_label", "unknown"]
+}

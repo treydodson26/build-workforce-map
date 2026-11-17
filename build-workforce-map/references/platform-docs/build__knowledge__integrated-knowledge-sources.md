@@ -1,0 +1,86 @@
+# The platform docs: `build/knowledge/integrated-knowledge-sources/`
+
+3 pages, downloaded on 11/16/2026.
+
+
+---
+
+# Page: Notion as a Knowledge Source
+
+Path: `build/knowledge/integrated-knowledge-sources/notion`.
+
+## Notion as a Knowledge Source
+
+> Use Notion as a source of Knowledge for your Agents
+
+Notion can be added as an integrated Knowledge source via the Agent Builder for your Agents to read pages and use them as Knowledge.
+
+You can select specific Notion pages or databases for your Agent to read as Knowledge sources.
+
+### Set up Notion as a Knowledge source
+
+<div style="{ width:"100%",position:"relative","padding-top":"56.75%" }">
+  <iframe src="https://app.supademo.com/embed/cmemeidzu1jryv9kq0trvsn47" frameBorder="0" title="How to set up Notion as a source of Knowledge" allow="clipboard-write; fullscreen" webkitAllowFullscreen="true" mozAllowFullscreen="true" style="{ position:"absolute",top:0,left:0,width:"100%",height:"100%",border:"3px solid #5E43CE",borderRadius:"10px" }" />
+</div>
+
+To set up Notion as a Knowledge source, first, open an Agent up and head to the Build screen. Then...
+
+1. Click ‘Knowledge’
+2. Click ‘Add Notion’
+3. Select or connect the Notion account you want to access
+4. Select the Notion files you wish to have the Agent read
+5. Once you’ve selected the files you want to add as Knowledge, click ‘Create’
+6. Choose how you want the Agent to use this Knowledge on the next screen
+
+### Frequently asked questions (FAQs)
+
+<AccordionGroup>
+  <Accordion title="Are Notion databases supported?">
+    Yes! You can select both Notion pages and databases as Knowledge.
+  </Accordion>
+
+  <Accordion title="How often do agents fetch data from Notion?">
+    Agents automatically fetch data from the selected Notion pages every 5 minutes. This ensures that your agents have access to the most up-to-date information available, helping them make informed decisions in real-time.
+  </Accordion>
+</AccordionGroup>
+
+
+---
+
+# Page: Sharepoint as a Knowledge Source
+
+Path: `build/knowledge/integrated-knowledge-sources/sharepoint`.
+
+## Sharepoint as a Knowledge Source
+
+> Use Sharepoint as a source of Knowledge for your Agents
+
+
+
+Sharepoint can be added as an integrated Knowledge source via the Agent Builder for your Agents to read files and use them as Knowledge.
+
+You can select specific Sharepoint folders or files for your Agent to read as Knowledge sources.
+
+### Set up Sharepoint as a Knowledge source
+
+<div style="{ width:"100%",position:"relative","padding-top":"56.75%" }">
+  <iframe src="https://app.supademo.com/embed/cme7vxmdp37fch3pyxzg4wb5g" frameBorder="0" title="How to set up Sharepoint as a source of Knowledge" allow="clipboard-write; fullscreen" webkitAllowFullscreen="true" mozAllowFullscreen="true" style="{ position:"absolute",top:0,left:0,width:"100%",height:"100%",border:"3px solid #5E43CE",borderRadius:"10px" }" />
+</div>
+
+To set up Sharepoint as a Knowledge source, first, open an Agent up and head to the Build screen. Then...
+
+1. Click ‘Knowledge’
+2. Click ‘Add Sharepoint’
+3. Select or add the Sharepoint account and drive you want to access
+4. Select the Sharepoint files you wish to have the Agent read
+5. Once you’ve selected the files you want to add as Knowledge, click ‘Create’
+6. Choose how you want the Agent to use this Knowledge on the next screen
+
+### Frequently asked questions (FAQs)
+
+<AccordionGroup>
+  <Accordion title="Will any changes I make to my Sharepoint files be reflected in the platform?">
+    Yes, our automatic content syncing feature ensures that any documents you upload initially, as well as any changes made to those files in SharePoint, are automatically updated in your agent’s knowledge store. This means you won’t have to worry about manually syncing files every time there’s an update; it all happens seamlessly in the background.
+  </Accordion>
+</AccordionGroup>
+

@@ -1,0 +1,136 @@
+{
+  "requirement": [
+    "\\bmust\\b",
+    "\\bshould\\b",
+    "\\bneed(?:s|ed)? to\\b",
+    "\\brequire(?:s|d)?\\b",
+    "\\bi want\\b",
+    "\\bi wanna\\b",
+    "\\bturn it into\\b",
+    "\\bset it up\\b",
+    "\\bmake sure\\b",
+    "\\bensure\\b",
+    "\\balways\\b",
+    "\\bdo not\\b",
+    "\\bnever\\b",
+    "\\ball i have to\\b",
+    "\\bthe agent should\\b",
+    "\\bthe system should\\b",
+    "\\bi need\\b",
+    "\\bwe need\\b",
+    "\\bit has to\\b",
+    "\\bhas to\\b",
+    "\\b(?:app|system|script|agent|pipeline|workflow|tool)\\s+needs\\b"
+  ],
+  "constraint": [
+    "\\bonly\\b",
+    "\\bwithout\\b",
+    "\\bunless\\b",
+    "\\bdo not\\b",
+    "\\bnever\\b",
+    "\\bmust not\\b",
+    "\\bcannot\\b",
+    "\\bpreserve\\b",
+    "\\bimmutable\\b",
+    "\\bno external\\b"
+  ],
+  "decision": [
+    "\\bdecided\\b",
+    "\\bselected\\b",
+    "\\blocked\\b",
+    "\\bfinal\\b",
+    "\\bwill use\\b",
+    "\\bthe design is\\b",
+    "\\bbecomes\\b",
+    "\\bnormal command becomes\\b",
+    "\\bi'?m making th(?:at|e) call\\b",
+    "\\bmak(?:e|ing) the call\\b",
+    "\\bcalling it\\b",
+    "\\b(?:we'?re|i'?m|let'?s) go(?:ing)? with\\b",
+    "^(?:yes|agreed|approved|confirmed|go ahead|do it|ship it)\\b",
+    "^park(?:ing)?\\b",
+    "\\bpark(?:ed)? (?:it|that|this)\\b"
+  ],
+  "acceptance_criterion": [
+    "\\bdone when\\b",
+    "\\bacceptance\\b",
+    "\\bsuccess measure\\b",
+    "\\brelease_(?:approved|blocked)\\b",
+    "\\bdo not (?:call|declare).+ unless\\b",
+    "\\bverify that\\b",
+    "\\bpasses validation\\b",
+    "\\bcoverage metrics\\b",
+    "\\b100 percent\\b",
+    "\\bno critical\\b",
+    "\\bno new high-severity\\b"
+  ],
+  "action_item": [
+    "^(?:please\\s+)?(?:create|build|run|inspect|extract|validate|render|review|compare|return|deliver|apply|preserve|load|select|generate|confirm|detect|classify|produce|record|include|exclude)\\b",
+    "\\bi(?:'ll| will)\\s+(?:\\w+\\s+){0,2}?(?:write|take|send|draft|update|create|build|run|review|drop|handle|own|finish|schedule|follow|set|put|share|prepare|book|email|ping|post|upload)\\b",
+    "\\bby (?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|eod|end of (?:the )?(?:day|week|month))\\b",
+    "\\baction item\\b",
+    "\\bnext step\\b",
+    "\\bfollow(?:ing)? up\\b"
+  ],
+  "tool_or_command": [
+    "\\btool(?:s)?\\b",
+    "\\bscript(?:s)?\\b",
+    "\\bmcp\\b",
+    "\\bapi\\b",
+    "\\bcommand\\b",
+    "\\bpython\\s+[^\\s]+\\.py\\b",
+    "\\b[a-zA-Z0-9_-]+\\.py\\b",
+    "\\b[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+\\b"
+  ],
+  "artifact_or_output": [
+    "\\boutput\\b",
+    "\\bdeliver(?:able|ables)?\\b",
+    "\\bproduce\\b",
+    "\\breturn\\b",
+    "\\bcreate\\b",
+    "\\b[a-zA-Z0-9_.-]+\\.(?:json|csv|md|docx|pdf|yaml|yml|txt|html|zip|xlsx|pptx)\\b"
+  ],
+  "process_step": [
+    "^(?:\\d+[.)]|[-*\u2022])\\s+",
+    "^(?:validate|inspect|extract|map|classify|select|run|generate|repair|verify|deliver|reconcile|render|compare)\\b"
+  ],
+  "risk": [
+    "\\brisk\\b",
+    "\\bblocked\\b",
+    "\\bfail(?:ure|ed)?\\b",
+    "\\bregression\\b",
+    "\\bambiguous\\b",
+    "\\buncertain\\b",
+    "\\bconflict(?:ing)?\\b",
+    "\\bmissing\\b",
+    "\\bunsafe\\b"
+  ],
+  "assumption": [
+    "\\bassum(?:e|es|ed|ption)\\b",
+    "\\binfer\\b",
+    "\\blikely\\b",
+    "\\bmay mean\\b",
+    "\\bif no .+ select\\b"
+  ],
+  "source_reference": [
+    "https?://",
+    "\\bsource(?:s)?\\b",
+    "\\breference(?:s)?\\b",
+    "\\bcitation(?:s)?\\b"
+  ],
+  "follow_up": [
+    "\\bfollow[- ]?up\\b",
+    "^how to ",
+    "^best practices for ",
+    "^strategies for ",
+    "\\bnext question\\b"
+  ],
+  "explicit_open_question": [
+    "\\bopen question\\b",
+    "\\bunresolved\\b",
+    "\\btbd\\b",
+    "\\bto be decided\\b",
+    "\\bstill deciding\\b",
+    "\\bneeds? (?:a )?decision\\b"
+  ]
+}

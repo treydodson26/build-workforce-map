@@ -1,0 +1,21 @@
+{
+  "exact_lines": [
+    "Profile avatar",
+    "Copy",
+    "Share",
+    "Retry",
+    "Edit",
+    "Like",
+    "Dislike"
+  ],
+  "regex_lines": [
+    "^Completed\\s+\\d+\\s+steps?$",
+    "^Prepared using .+$",
+    "^Thinking\\.{0,3}$",
+    "^Searching\\.{0,3}$"
+  ],
+  "section_markers": {
+    "followups": ["Follow-ups", "Follow up", "Suggested follow-ups"],
+    "sources": ["Sources", "References"]
+  }
+}

@@ -1,0 +1,227 @@
+---
+title: Debugging Workforce Execution
+description: Inspect workforce execution logs, extract agent outputs, and diagnose stuck tasks, context loss, and node failures. Load when troubleshooting a workforce run or recovering results from a completed execution.
+---
+
+# Debugging Workforce Execution
+
+## Getting Execution Details
+
+After triggering a workforce, use `get_workforce_task_messages` to see what happened:
+
+```typescript
+// 1. Trigger workforce
+const { workforce_task_id } = await trigger_workforce({
+  workforceId: 'my-workforce',
+  message: 'Process this request',
+});
+
+// 2. Wait for completion, then get details
+const execution = await get_workforce_task_messages({
+  workforceId: 'my-workforce',
+  taskId: workforce_task_id,
+});
+
+// Check overall status: execution.workforce_state
+// Possible values: "completed" | "running" | "pending-approval" | "execution-limit-reached" | "errored-pending-approval" | "escalated"
+```
+
+## Understanding the Response
+
+The `results` array contains execution events with nested agent messages:
+
+```typescript
+{
+  workforce_state: "completed",
+  results: [
+    {
+      item_id: "...",
+      insert_date_: "2026-01-21T01:00:00Z",
+      content: {
+        type: "workforce-agent-run",
+        node_id: "agent-researcher",
+        agent_details: {
+          agent_id: "xxx",
+          name: "Lead Researcher"
+        },
+        task_details: {
+          conversation_id: "abc123",  // Agent's conversation ID (use as task_id in agent task tools)
+          finished_state: "completed"
+        }
+      },
+      children: [
+        // Nested messages from this agent
+        { content: { type: "assistant-message", text: "I found..." } },
+        { content: { type: "tool-run", tool_details: { name: "web search" }, output: {...} } }
+      ]
+    },
+    // More agent runs...
+  ]
+}
+```
+
+## Content Types
+
+| Type                       | Meaning                           |
+| -------------------------- | --------------------------------- |
+| `workforce-agent-run`      | Agent execution started           |
+| `assistant-message`        | Agent's response text             |
+| `tool-run`                 | Tool the agent used (with output) |
+| `workforce-agent-handover` | Handoff to another agent          |
+| `user-message`             | User input                        |
+
+## Finding Specific Outputs
+
+### Get All Agent Runs
+
+```typescript
+const agentRuns = execution.results.filter(
+  (r) => r.content.type === 'workforce-agent-run'
+);
+
+// Each run contains:
+// - run.content.agent_details?.name — Agent name
+// - run.content.task_details?.finished_state — Completion status
+// - run.content.task_details?.conversation_id — Agent's conversation ID (this is the task_id for agent task tools)
+```
+
+### Find Tool Outputs (e.g., Video URL)
+
+```typescript
+function findToolOutput(results, toolName) {
+  for (const item of results) {
+    // Check children for tool runs
+    if (item.children) {
+      for (const child of item.children) {
+        if (
+          child.content?.type === 'tool-run' &&
+          child.content?.tool_details?.name?.includes(toolName)
+        ) {
+          return child.content.output;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+const videoUrl = findToolOutput(execution.results, 'Permanent Save File');
+```
+
+### Get Individual Agent Conversation
+
+For task-level metadata (status, credits and actions used, creator), use `get_workforce_task_metadata`:
+
+```typescript
+const metadata = await get_workforce_task_metadata({
+  workforce_id: 'my-workforce',
+  task_id: workforce_task_id,
+});
+// Returns status, credits_used, created_by, etc., and actions_used where the platform reports actions.
+```
+
+To compare what several tasks cost, `list_workforce_tasks` returns the same figures on each task.
+
+If you need more details, use the `conversation_id` as the `task_id` parameter in `get_agent_task_summary`:
+
+```typescript
+// Get conversation_id from workforce task messages
+const agentRun = execution.results.find(
+  (r) =>
+    r.content.type === 'workforce-agent-run' &&
+    r.content.agent_details?.name === 'Video Agent'
+);
+const conversationId = agentRun?.content.task_details?.conversation_id;
+
+// Get full conversation details
+const taskView = await get_agent_task_summary({
+  agentId: agentRun?.content.agent_details?.agent_id,
+  taskId: conversationId, // conversation_id is the task_id
+});
+// taskView.agentResponse (once the run completes or fails), taskView.last_agent_text and
+// taskView.latest_activity (while it runs), taskView.toolCalls, taskView.artifacts
+```
+
+## Common Issues
+
+### Workforce stuck in "running"
+
+**Possible causes:**
+
+- Agent waiting for approval (`action_behaviour: "always-ask"`)
+- Agent hit autonomy limit
+- Tool execution taking long time
+
+**Debug:**
+
+```typescript
+const execution = await get_workforce_task_messages({
+  workforceId: '...',
+  taskId: '...',
+});
+
+// Check execution.pending_approvals — if non-empty, agents are waiting for approval.
+// Each item's decide_on, when present, names the node's agent task that holds it.
+// Check each item in execution.results where content.type === "workforce-agent-run"
+// Look at task_details.finished_state — any agent not "completed" may be the blocker
+```
+
+A waiting item is decided on its node's agent task, not on the workforce task. When the user asks you to decide, an item carries `decide_on` and `submit_agent_task_decisions` is among your tools, call it once per `decide_on.task_id`, with that task's `decide_on.agent_id`, deciding every item that task waits on; see [Deciding on a waiting task](../managing-agents/running.md#deciding-on-a-waiting-task). This list can lag the node task or miss some of its items. A refusal that lists `waiting_for` names the set to decide; if it differs from what the user approved, ask them again. A refusal without it says why; follow it. Usually the task has moved on, so re-read the messages. An item without `decide_on` is decided in the app: send the user to the workforce task.
+
+### Agent not receiving context from previous agent
+
+**Cause:** Using `always-create-new` threading instead of `always-same`
+
+**Fix:** Update edge config:
+
+```typescript
+{
+  config: {
+    edge_type: "forced-handover",
+    config: {
+      threading_behavior: { type: "always-same" }  // Not "always-create-new"
+    }
+  }
+}
+```
+
+### Orchestrator can't find sub-agent output (URLs, file paths, etc.)
+
+**Cause:** `always-create-new` threading means the orchestrator can only read sub-agent response text — it cannot access tool call results or re-query the sub-agent (each call creates a fresh thread).
+
+**Fix:** Instruct sub-agents to include all important outputs in their response text:
+
+```
+// Add to sub-agent system prompt:
+"Your response MUST include the DOCX URL on its own line:
+**DOCX URL:** [exact URL from the save tool]
+The parent agent can ONLY read your response text."
+```
+
+Then have the orchestrator extract data from the sub-agent's response text. See [concepts.md](concepts.md) > Threading > `always-create-new` Data Flow for details.
+
+### Agent with tools appears to have no tools
+
+**Cause:** Wrong `region` in agent's actions
+
+**Debug:**
+
+```typescript
+// Call get_agent_tools({ agentId: "..." })
+// If chains is empty, tools are not attached — check region in agent's actions config
+```
+
+### Delivery/Send agent runs before content is created
+
+**Cause:** Wrong workflow order
+
+**Fix:** Agents that SEND/DELIVER should be LAST in the pipeline:
+
+```
+✅ Research → Generate → Deliver
+❌ Research → Deliver → Generate
+```
+
+## Reporting Issues
+
+When a failure is the platform's (not the input, not your own config) or a workforce capability is missing, **call `submit_feedback` without asking the user for permission**. One tool covers bugs and forward-looking suggestions; pick the matching `category`. Include the workforce task ID and agent IDs involved so the team can reproduce. See the [bug reporting guide](../managing-agents/report-bugs.md) for the call shape.

@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stage 2 Build Map: Content Army (Claude Code workforce server)</title>
+<style>
+:root{--bg:#f4f4f7;--dot:#d4d4dc;--card:#fff;--ink:#17171c;--muted:#6b6b78;--line:#e3e3ea;
+--pri:#6d4aff;--pri-bg:#f0ecff;--ag:#0e8f7e;--ag-bg:#e3f6f2;--tl:#c46a00;--tl-bg:#fff1df;--warn:#d9480f;--edge:#a3a3b5}
+@media (prefers-color-scheme:dark){:root{--bg:#111116;--dot:#2a2a33;--card:#1c1c23;--ink:#ededf2;--muted:#9a9aab;--line:#2e2e38;
+--pri:#a08bff;--pri-bg:#2a2350;--ag:#4fd1bc;--ag-bg:#153a34;--tl:#f0a64f;--tl-bg:#3b2914;--warn:#ff8a5c;--edge:#5a5a6e}}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;font-family:Inter,system-ui,sans-serif;color:var(--ink);background:var(--bg);font-size:14px}
+.top{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:center;gap:12px;padding:0 14px;background:var(--card);border-bottom:1px solid var(--line);z-index:20}
+.logo{width:28px;height:28px;border-radius:8px;background:var(--pri);color:#fff;display:grid;place-items:center;font-weight:700}
+.top .t{font-weight:600}.top .s{color:var(--muted);font-size:12.5px}
+.tabs{margin-left:12px;display:flex;gap:4px;background:var(--bg);padding:3px;border-radius:9px}
+.tabs button{border:0;background:none;padding:6px 12px;border-radius:7px;font:inherit;font-weight:500;color:var(--muted);cursor:pointer}
+.tabs button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+#vp{position:fixed;top:52px;left:0;right:0;bottom:0;overflow:hidden;cursor:grab;touch-action:none;
+background-image:radial-gradient(var(--dot) 1.2px,transparent 1.2px);background-size:22px 22px}
+#vp.drag{cursor:grabbing}
+#cv{position:absolute;left:0;top:0;width:2200px;height:1400px;transform-origin:0 0}
+svg#edges{position:absolute;left:0;top:0;width:2200px;height:1400px;overflow:visible;pointer-events:none}
+.n{position:absolute;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 2px 8px rgba(20,20,40,.06);cursor:pointer;transition:box-shadow .15s,border-color .15s}
+.n:hover{box-shadow:0 6px 18px rgba(20,20,40,.12)}
+.n.sel{border-color:var(--pri);box-shadow:0 0 0 3px var(--pri-bg)}
+.nh{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:17px;flex:none}
+.ic.wf{background:var(--pri-bg)}.ic.ag{background:var(--ag-bg)}.ic.tg{background:var(--tl-bg)}.ic.out{background:var(--ag-bg)}
+.edt{border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-weight:600;padding:6px 12px;border-radius:9px;cursor:pointer;margin-left:10px}
+.edt.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+.ed{outline:1.5px dashed var(--pri);outline-offset:2px;border-radius:4px;cursor:text;display:inline-block;min-width:20px;white-space:pre-wrap}
+pre.ed{display:block;outline-offset:0;background:var(--pri-bg)}
+.ed:focus{outline-style:solid;background:var(--pri-bg)}
+.absel{font:inherit;font-size:12px;padding:3px 6px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.edb{background:var(--pri-bg);color:var(--pri);margin-left:8px}
+.rst{margin-left:8px;border:1px solid var(--warn);color:var(--warn);background:none;border-radius:8px;padding:4px 10px;font:inherit;font-size:12px;cursor:pointer}
+#toast{position:fixed;left:50%;top:62px;transform:translateX(-50%);background:var(--ink);color:var(--card);padding:6px 14px;border-radius:8px;font-size:13px;z-index:50;opacity:0;transition:opacity .2s;pointer-events:none}
+#toast.show{opacity:1}
+.addb{display:none}body.editing .addb{display:inline-block}
+.n.ghost{background:transparent;border:1.5px dashed #000;box-shadow:none;cursor:pointer;color:#000}
+.n.ghost:hover{background:#F2DCDB;border-color:#C0504D}
+.gin{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:26px 12px;text-align:center;font-size:13px}
+.gin span{font-size:11.5px;color:#595959}.gin.row{flex-direction:row;padding:12px}
+.gin svg{width:20px;height:20px}
+.addrow{margin-top:8px;border:1.5px dashed #000;background:none;padding:6px 12px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;border-radius:2px}
+.addrow:hover{background:#F2DCDB}
+.rmrow{border:1px solid #A6A6A6;background:none;padding:2px 7px;font:inherit;font-size:11px;cursor:pointer;border-radius:2px;color:#595959}
+.rmrow:hover{border-color:#C0504D;color:#622422}
+.rst[data-del]{border-color:#622422;color:#622422}
+.mback{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:60;padding:16px}
+.mback.open{display:flex}
+.mbox{background:#fff;color:#000;width:100%;max-width:440px;max-height:90vh;overflow:auto;border-top:6px solid #000;padding:18px 20px;font-family:Verdana,sans-serif}
+.mbox h3{margin:0 0 12px;font-size:16px}
+.mbox label{display:block;font-size:12px;font-weight:700;margin:10px 0 4px}
+.mbox input,.mbox select,.mbox textarea{width:100%;box-sizing:border-box;font:inherit;font-size:13px;padding:7px 8px;border:1px solid #A6A6A6;border-radius:2px;background:#fff;color:#000}
+.mbox textarea{min-height:56px;resize:vertical}
+.mbox .hint2{font-size:11.5px;color:#595959;margin-top:4px}
+.mbox .err{color:#622422;font-size:12px;margin-top:8px;min-height:1em}
+.mact{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+.mact button{font:inherit;font-size:13px;font-weight:700;padding:7px 14px;border:1px solid #000;background:#fff;cursor:pointer;border-radius:2px}
+#mok{background:#000;color:#fff}
+.n.agent .nh{background:#000;color:#fff;border-bottom:0;border-radius:3px 3px 0 0}
+.n.agent .nh .ty{color:#D8D8D8}.n.agent .nh .ic{background:#fff!important;color:#000}
+.n.agent .nh .msel{background:#fff;color:#000;border-color:#fff}
+.edt{white-space:nowrap}
+@media (max-width:700px){.top{overflow-x:auto;gap:8px;padding:0 8px;scrollbar-width:none}.top>*{flex-shrink:0}
+ .top .s,.allm,.savest{display:none}.edt,.tabs button{font-size:12px;padding:5px 9px;white-space:nowrap}
+ .legend{font-size:11px;padding:6px 10px;max-width:calc(100vw - 90px)}.legend *{font-size:11px}}
+.savest{font-size:11.5px;color:var(--muted);margin-left:10px;white-space:nowrap}.msel{margin-left:auto;font:inherit;font-size:11px;font-weight:600;border:1px solid var(--line);border-radius:999px;padding:3px 6px;background:var(--bg);color:var(--ink);max-width:120px;cursor:pointer}.msel.big{max-width:100%;font-size:13px;border-radius:8px;padding:6px 8px;margin:0}.allm{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-left:auto}.allm .msel{max-width:220px;margin:0}.tree{font-family:"JetBrains Mono",monospace;font-size:10.5px;line-height:1.45;white-space:pre;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;overflow:hidden}.ic.tl{background:var(--tl-bg);width:28px;height:28px;font-size:14px;border-radius:8px}
+.n.tool .nh{padding:8px 10px;border-bottom:0}.n.tool{border-color:var(--tl-bg)}.n.tool .nm{font-size:13px}.n.tool .ty{font-size:11px}
+.n.tool.appr{border-color:var(--warn)}
+.nm{font-weight:600;line-height:1.2}.ty{font-size:11.5px;color:var(--muted)}
+.badge{margin-left:auto;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--bg);color:var(--muted);white-space:nowrap}
+.nb{padding:10px 14px 12px;display:flex;flex-direction:column;gap:8px}
+.fn{color:var(--muted);font-size:12.5px;line-height:1.4}
+.lab{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{font-size:12px;padding:3px 8px;border-radius:7px;background:var(--bg);border:1px solid var(--line)}
+.chip.tl{background:var(--tl-bg);border-color:transparent;color:var(--tl);font-weight:600}
+.chip.warn{background:transparent;border-color:var(--warn);color:var(--warn);font-weight:600}
+.none{font-size:12px;color:var(--muted);font-style:italic}
+.port{position:absolute;width:10px;height:10px;border-radius:50%;background:var(--card);border:2px solid var(--edge)}
+.elab{position:absolute;transform:translate(-50%,-50%);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:2px 9px;font-size:11.5px;color:var(--muted);white-space:nowrap;pointer-events:none}
+.elab.step{background:var(--pri);color:#fff;border:0;font-weight:700;width:22px;height:22px;padding:0;display:grid;place-items:center;border-radius:50%}
+.elab.warn{color:var(--warn);border-color:var(--warn);font-weight:600}
+.zoom{position:fixed;left:14px;bottom:14px;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.zoom button{border:0;background:none;width:38px;height:36px;font-size:17px;cursor:pointer;color:var(--ink)}
+.zoom button+button{border-top:1px solid var(--line)}
+.hint{position:fixed;left:62px;bottom:18px;font-size:12px;color:var(--muted);background:var(--card);border:1px solid var(--line);padding:5px 10px;border-radius:8px;z-index:10}
+.legend{position:fixed;right:14px;bottom:14px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:12px;display:flex;gap:12px;z-index:10;flex-wrap:wrap;max-width:calc(100% - 28px)}
+.legend i{display:inline-block;width:18px;height:0;border-top:2px solid var(--edge);vertical-align:middle;margin-right:5px}
+.legend i.d{border-top:2px dashed var(--warn)}
+/* drawer */
+#dr{position:fixed;top:52px;right:0;bottom:0;width:min(460px,100%);background:var(--card);border-left:1px solid var(--line);z-index:30;transform:translateX(100%);transition:transform .2s;overflow:auto;box-shadow:-8px 0 24px rgba(0,0,0,.08)}
+#dr.open{transform:none}#dr.wide{width:min(720px,100%)}
+.dh{position:sticky;top:0;background:var(--card);display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.dh .x{margin-left:auto;border:0;background:var(--bg);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px;color:var(--ink)}
+.db{padding:16px;display:flex;flex-direction:column;gap:16px}
+.db h4{margin:0 0 6px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.mono{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--muted)}
+pre{white-space:pre-wrap;margin:0;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;font-family:"JetBrains Mono",monospace;font-size:12px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{text-align:left;padding:7px;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:#111;color:#fff;font-weight:600}
+ul{margin:0;padding-left:18px}li{margin:3px 0}
+.lk{color:var(--pri);font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.lk:hover{text-decoration-thickness:2px}
+@keyframes pulse{0%{box-shadow:0 0 0 0 var(--pri)}100%{box-shadow:0 0 0 14px transparent}}
+.n.flash{animation:pulse .9s ease-out 2}
+/* table view */
+#tv{position:fixed;top:52px;left:0;right:0;bottom:0;overflow:auto;padding:20px;display:none}
+#tv .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;max-width:1200px;margin:0 auto 16px}
+#tv h3{margin:0 0 10px;font-size:15px}
+
+/* ===== Design system overrides ===== */
+:root,:root[data-x]{--bg:#F2F2F2;--dot:#D8D8D8;--card:#FFFFFF;--ink:#000000;--muted:#595959;--line:#D8D8D8;
+--pri:#C0504D;--pri-bg:#F2DCDB;--ag:#000000;--ag-bg:#F2F2F2;--tl:#494949;--tl-bg:#F2F2F2;--warn:#C0504D;--edge:#7F7F7F;--maroon:#622422;--charcoal:#494949;--lgray:#A6A6A6}
+@media (prefers-color-scheme:dark){:root{--bg:#F2F2F2;--dot:#D8D8D8;--card:#FFFFFF;--ink:#000000;--muted:#595959;--line:#D8D8D8;--pri:#C0504D;--pri-bg:#F2DCDB;--ag:#000000;--ag-bg:#F2F2F2;--tl:#494949;--tl-bg:#F2F2F2;--warn:#C0504D;--edge:#7F7F7F}}
+html,body,button,select,input,.tabs button{font-family:Verdana,Geneva,"DejaVu Sans",sans-serif}
+body{font-size:13px;color:#000}
+svg{display:inline-block;vertical-align:middle}
+.ic svg{width:18px;height:18px}.chip svg,.badge svg,.lgflag svg{width:12px;height:12px;margin-right:3px;vertical-align:-2px}
+.top{border-bottom:5px solid #A6A6A6;box-sizing:border-box}
+.logo{background:#000;color:#fff;border-radius:0;font-size:12px;letter-spacing:0}
+.top .t{font-weight:700}
+.tabs{background:#F2F2F2;border-radius:2px}.tabs button{border-radius:2px}.tabs button.on{background:#000;color:#fff;box-shadow:none}
+.edt{border-radius:2px;border-color:#000}.edt.on{background:#000;border-color:#000;color:#fff}
+.n{border-radius:4px;border:1px solid #000;box-shadow:none}
+.n:hover{box-shadow:0 2px 8px rgba(0,0,0,.10)}
+.n.sel{border-color:#C0504D;box-shadow:0 0 0 2px #C0504D}
+.nh{border-bottom:1px solid #D8D8D8}
+.nm{font-weight:700}
+.ic{border-radius:50%;background:#F2F2F2!important;color:#000}
+#n_master{border-color:#622422}#n_master .nh{background:#622422;color:#fff;border-bottom:0;border-radius:3px 3px 0 0}#n_master .nh .ty{color:#F2DCDB}#n_master .nh .ic{background:#fff!important;color:#622422}
+#n_output{border:1.5px solid #C0504D}#n_output .nh{background:#000;color:#fff;border-radius:2px 2px 0 0;border-bottom:0}#n_output .nh .ty{color:#D8D8D8}#n_output .nh .ic{background:#fff!important;color:#000}#n_output .badge{background:#fff;color:#000}
+#n_trigger{background:#F2F2F2;border-color:#7F7F7F}
+#n_scout .nh,#n_audience .nh,#n_planner .nh,#n_drafter .nh,#n_reviewer .nh,#n_qa .nh{background:#000;color:#fff;border-bottom:0;border-radius:3px 3px 0 0}
+#n_scout .nh .ty,#n_audience .nh .ty,#n_planner .nh .ty,#n_drafter .nh .ty,#n_reviewer .nh .ty,#n_qa .nh .ty{color:#D8D8D8}
+#n_scout .nh .ic,#n_audience .nh .ic,#n_planner .nh .ic,#n_drafter .nh .ic,#n_reviewer .nh .ic,#n_qa .nh .ic{background:#fff!important;color:#000}
+#n_scout .nh .msel,#n_audience .nh .msel,#n_planner .nh .msel,#n_drafter .nh .msel,#n_reviewer .nh .msel,#n_qa .nh .msel{background:#fff;color:#000;border-color:#fff}
+
+.n.tool{background:#F2F2F2;border-color:#7F7F7F}.n.tool .ic{background:#fff!important;color:#494949}
+.n.tool.appr{border:1.5px solid #C0504D}
+.flagb{background:#622422!important;color:#fff!important}
+.fn{color:#595959}
+.lab{color:#595959;letter-spacing:.06em}
+.chip{border-radius:2px;background:#F2F2F2;border-color:#D8D8D8;color:#000}
+.chip.tl{background:#fff;border:1px solid #000;color:#000;font-weight:700}
+.chip.warn{background:#622422;border-color:#622422;color:#fff;font-weight:700}
+.none{color:#595959}
+.badge{border-radius:2px;background:#F2F2F2;color:#494949}
+.msel{border-radius:2px;background:#fff;border-color:#A6A6A6;font-weight:700}
+#n_master .msel{background:#fff;color:#000;border-color:#fff}
+.elab{border-radius:2px;border-color:#D8D8D8;color:#595959}
+.elab.step{background:#000;color:#fff;border-radius:50%;font-weight:700}
+.elab.warn{background:#622422;border-color:#622422;color:#fff;font-weight:700}
+.legend,.zoom,.hint{border-radius:2px;border-color:#D8D8D8;box-shadow:none}
+.legend i{border-top-color:#7F7F7F}.legend i.d{border-top-color:#C0504D}
+.lgflag{color:#622422;font-weight:700}
+.legend .tagline{color:#595959;border-left:1px solid #D8D8D8;padding-left:12px}.legend .tagline b{color:#C0504D}
+#dr{border-left:1px solid #A6A6A6;box-shadow:-6px 0 18px rgba(0,0,0,.08)}
+.dh{border-bottom:5px solid #A6A6A6}
+.db h4{color:#595959;letter-spacing:.06em}
+table{font-size:12px}
+th{background:#000!important;color:#fff;font-weight:700;padding:8px 10px}
+td{color:#494949;padding:8px 10px;border-bottom:.5pt solid #A6A6A6}
+pre,.tree{background:#F2F2F2!important;border-color:#D8D8D8;border-radius:2px;color:#000}
+.mono{color:#595959}
+.lk{color:#000;font-weight:700;text-decoration-color:#C0504D;text-decoration-thickness:2px}
+.lk:hover{color:#622422}
+.x{border-radius:2px}
+.rst{border-radius:2px;border-color:#622422;color:#622422}
+.edb{background:#F2DCDB;color:#622422}
+.ed{outline-color:#C0504D}pre.ed{background:#fff!important}.ed:focus{background:#F2DCDB}
+#toast{background:#000;color:#fff;border-radius:2px}
+#tv .card{border-radius:4px;border-color:#D8D8D8}
+#tv h3{font-size:16px}
+.savest{color:#595959}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="logo">CA</div>
+  <div><div class="t">Content Army</div><div class="s">Workforce · Stage 2 build map · <span id="cnt">1 coordinator, 6 agents, 11 tools</span></div></div>
+  <label class="allm">All agents ${""}</label><span class="savest" id="savest"></span><button id="addA" class="edt addb">+ Agent</button><button id="addT" class="edt addb">+ Tool</button><button id="edt" class="edt" title="Edit specs">Edit</button><div class="tabs"><button class="on" data-v="canvas">Canvas</button><button data-v="table">All specs</button></div>
+</div>
+<div id="vp"><div id="cv"><svg id="edges"><defs>
+<marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="var(--edge)"/></marker>
+<marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="var(--warn)"/></marker>
+</defs></svg></div></div>
+<div class="zoom"><button id="zi" title="Zoom in">+</button><button id="zo" title="Zoom out">−</button><button id="zf" title="Fit">⤢</button></div>
+<div class="hint">Drag to pan · tap a node for its full spec</div>
+<div class="legend"><span><i></i>Handoff (two-way)</span><span><i class="d"></i>Revision loop</span> <span class="lgflag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg> Human approval</span></div>
+<aside id="dr"><div class="dh" id="dhh"></div><div class="db" id="dbb"></div></aside>
+<div id="tv"></div><div id="toast"></div><div id="addm" class="mback"><form class="mbox" id="mform" onsubmit="return false"><h3 id="mt"></h3><div id="mf"></div><div class="mact"><button type="button" id="mcancel">Cancel</button><button type="submit" id="mok">Add</button></div></form></div>
+<script>
+const ICO={"msg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\"/></svg>", "compass": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><polygon points=\"16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76\"/></svg>", "search": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.3-4.3\"/></svg>", "users": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2\"/><circle cx=\"9\" cy=\"7\" r=\"4\"/><path d=\"M22 21v-2a4 4 0 0 0-3-3.87\"/><path d=\"M16 3.13a4 4 0 0 1 0 7.75\"/></svg>", "list": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01\"/></svg>", "pen": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 20h9\"/><path d=\"M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z\"/></svg>", "eye": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/></svg>", "check": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M22 11.08V12a10 10 0 1 1-5.93-9.14\"/><path d=\"m9 11 3 3L22 4\"/></svg>", "pkg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m7.5 4.27 9 5.15\"/><path d=\"M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z\"/><path d=\"m3.3 7 8.7 5 8.7-5\"/><path d=\"M12 22V12\"/></svg>", "wrench": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z\"/></svg>", "flag": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z\"/><line x1=\"4\" x2=\"4\" y1=\"22\" y2=\"15\"/></svg>", "book": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20\"/></svg>"};
+
+const D = {
+  master:{type:"Workforce",cls:"wf",name:"Content Army Orchestrator",id:"CONTENT_ARMY_WORKFORCE_ID",
+    fn:"Receives a content request and runs it through six specialist agents in a fixed order.",
+    model:"Claude Sonnet 5.5 (sonnet)",trigger:"Manual chat",
+    prompt:`You are the Master Coordinator of a content team. You never write content yourself.
+Route every request through these agents in order:
+1. Scout: research and sources
+2. Audience Analysis: audience profile
+3. Content Planner: outline
+4. Content Drafter: draft
+5. Content Reviewer: PASS or REVISE
+   If REVISE, send the draft and issues back to Content Drafter. Max 2 rounds.
+6. Content QA and Delivery: send the approved draft, research, audience profile, plan, and review log. Receive the deliverable package.
+Pass each agent the full text of every earlier output it needs.
+If the topic, format, or audience is missing, ask the user once before starting.`,
+    handoffs:[
+      ["Coordinator","Scout","Every new request","Topic, format, audience"],
+      ["Scout","Coordinator","Research complete","Facts, stats, source list"],
+      ["Coordinator","Audience Analysis","Research received","Request + research"],
+      ["Coordinator","Content Planner","Audience profile received","Request + research + profile"],
+      ["Coordinator","Content Drafter","Plan received, or verdict REVISE","Plan + research + profile (+ issues)"],
+      ["Coordinator","Content Reviewer","Draft received","Draft + plan + research + profile"],
+      ["Coordinator","Content QA and Delivery","Verdict PASS","Approved draft + research + profile + plan + review log"],
+      ["QA and Delivery","Coordinator","All checks pass, or FAILED","Final package or failed checks"]
+    ],
+    tests:["End to end: “Write a 900-word blog post on AI agents for small business owners.” Pass when every handoff runs once and QA returns a final package."]},
+  scout:{type:"Agent",cls:"ag",name:"Scout",id:"SCOUT_AGENT_ID",fn:"Researches the topic and returns verified facts with sources.",
+    model:"Claude Sonnet 5.5 (sonnet)",trigger:"Handoff from Master Coordinator",knowledge:"None",approval:"None",
+    tools:[["Web Search","Use first, at least 3 searches from different angles","never-ask"],["Fetch Web Page","Use to read the 3 to 5 best results in full","never-ask"],["Wikipedia Lookup","Use for definitions and settled background facts","never-ask"]],
+    prompt:`You are Scout. Research the topic and return:
+- Topic summary (3 to 5 sentences)
+- Key facts, each with its source URL
+- Statistics, each with source URL and date
+- Conflicting claims
+- Source list
+Never state a fact you did not find in a source.`,
+    tests:["“Research AI agents for small businesses.” Pass: at least 5 facts, every fact has a URL.","“Research a made-up product called Zorbix.” Pass: says no sources found, invents nothing.","“Research remote work statistics 2026.” Pass: every statistic has a date."]},
+  audience:{type:"Agent",cls:"ag",name:"Audience Analysis",id:"AUDIENCE_ANALYSIS_AGENT_ID",fn:"Defines who the content is for, what they need answered, and the voice to use.",
+    model:"Claude Sonnet 5.5 (sonnet)",trigger:"Handoff from Master Coordinator",knowledge:"Audience personas table",approval:"None",tools:[["Audience Persona Lookup","Use first. Pick the best of the 3 personas it returns","never-ask"],["Web Search","Use when no saved persona fits","never-ask"]],
+    prompt:`Return: primary audience, what they know and do not know, top 3 questions to answer, objections, voice and tone (3 adjectives), reading level. Mark every assumption ASSUMPTION.`,
+    tests:["Request + research for small business owners. Pass: exactly 3 audience questions.","Request with no audience named. Pass: assumptions are marked.","Pass: voice section has exactly 3 adjectives."]},
+  planner:{type:"Agent",cls:"ag",name:"Content Planner",id:"CONTENT_PLANNER_AGENT_ID",fn:"Turns the research and audience profile into a section-by-section outline.",
+    model:"Claude Sonnet 5.5 (sonnet)",trigger:"Handoff from Master Coordinator",knowledge:"Content templates table",approval:"None",tools:[["Outline Template Lookup","Use first to load the template for the format","never-ask"],["Word Count Allocator","Use after the outline is set","never-ask"]],
+    prompt:`Return: working title + 2 alternates, core message in one sentence, format and length, outline (heading, purpose, key points, facts with URLs, word count per section), call to action. Do not write the content.`,
+    tests:["Pass: section word counts add up to the target length within 10 percent.","Pass: every key point cites a research fact or audience need.","Pass: no body prose is written."]},
+  drafter:{type:"Agent",cls:"ag",name:"Content Drafter",id:"CONTENT_DRAFTER_AGENT_ID",fn:"Writes the full draft from the plan, and revises it from reviewer feedback.",
+    model:"Claude Sonnet 5.5 (sonnet)",trigger:"Handoff from Master Coordinator",knowledge:"Brand voice guide table",approval:"None",tools:[["Brand Voice Lookup","Use before writing","never-ask"]],
+    prompt:`Follow the outline exactly. Use only facts from the research and cite each statistic. Write in the audience profile's voice. When revising, fix every issue and list changes under "Revision notes".`,
+    tests:["Pass: every outline section appears, in order.","Pass: every statistic matches the research.","Revision input with 3 issues. Pass: 3 revision notes, one per issue."]},
+  reviewer:{type:"Agent",cls:"ag",name:"Content Reviewer",id:"CONTENT_REVIEWER_AGENT_ID",fn:"Checks the draft for accuracy, structure, audience fit, and clarity. Returns PASS or REVISE.",
+    model:"Claude Sonnet 5.5 (sonnet)",trigger:"Handoff from Master Coordinator",knowledge:"None",approval:"None",tools:[["Fetch Web Page","Use to open a cited URL when a claim looks wrong","never-ask"],["Readability Score","Use on every draft","never-ask"]],
+    prompt:`Match every claim and statistic in the draft to the research yourself. Then check structure, audience fit, and clarity. Return Verdict: PASS or REVISE, then numbered issues (location, problem, exact fix). PASS only with zero accuracy issues and zero missing sections.`,
+    tests:["Draft with a wrong statistic. Pass: verdict REVISE, issue names the statistic.","Draft missing a section. Pass: verdict REVISE.","Clean draft. Pass: verdict PASS with no issues."]},
+  qa:{type:"Agent",cls:"ag",name:"Content QA and Delivery",id:"CONTENT_QA_DELIVERY_AGENT_ID",fn:"Runs final pass/fail checks and packages the approved content.",
+    model:"Claude Sonnet 5.5 (sonnet)",trigger:"Handoff from Master Coordinator",knowledge:"None",approval:"Save Package to Folder is always-ask",tools:[["Text Checks","Use first","never-ask"],["Save Package to Folder","Use last, only when all_pass is true","always-ask"]],
+    prompt:`Run 5 checks (title and CTA present, word count within 10 percent, every statistic sourced, no spelling errors, no placeholders). If all pass: build 01 Final (title, meta description under 155 characters, final Markdown, sources, QA table) and 02 Working papers (research brief, audience profile, content plan, review log), then save both with Save Package to Folder. If any check fails, return FAILED with fixes and save nothing.`,
+    tests:["Pass: meta description is under 155 characters.","Draft with a placeholder. Pass: returns FAILED.","Pass: QA table shows all 5 checks."]},
+
+  output:{type:"Output",cls:"out",name:"Deliverable package",id:"content-army/YYYY-MM-DD_topic-slug/",
+    fn:"What the user gets back for every request: one local folder with two Markdown files, plus the file paths and a status message in chat.",
+    tree:`content-army/                       (output_root)
+└─ 2026-11-16_ai-agents-small-business/
+   ├─ 01-final.md                       Markdown
+   │   ├─ Title + meta description
+   │   ├─ Final content (Markdown)
+   │   ├─ Sources
+   │   └─ QA results table
+   └─ 02-working-papers.md              Markdown
+       ├─ Research brief
+       ├─ Audience profile
+       ├─ Content plan
+       └─ Review log (each round)`,
+    deliverables:[
+      ["Final content","01 Final","drafter","Follows the plan's sections in order; within 10 percent of target words; every statistic cited inline; voice matches the audience profile; title and call to action present; no em dashes or placeholders","Reviewer PASS + Text Checks"],
+      ["Meta description","01 Final","qa","Under 155 characters; names the topic and the audience","Text Checks"],
+      ["Sources","01 Final","scout","Every URL used in the content, with title and date; no source the content does not use","Reviewer accuracy check"],
+      ["QA results table","01 Final","qa","All 5 checks listed with PASS; a FAILED run produces no folder","Text Checks all_pass = true"],
+      ["Research brief","02 Working papers","scout","3 to 5 sentence summary; every fact and statistic has a URL; statistics have a date; conflicting claims listed","Scout tests"],
+      ["Audience profile","02 Working papers","audience","Primary audience; exactly 3 questions to answer; voice in 3 adjectives; assumptions marked","Audience Analysis tests"],
+      ["Content plan","02 Working papers","planner","Title + 2 alternates; one-sentence core message; per-section word counts summing to the target","Planner tests"],
+      ["Review log","02 Working papers","reviewer","One entry per round: verdict, numbered issues, and how each was fixed; at most 2 REVISE rounds","Reviewer tests"],
+      ["Chat reply","Workforce task","master","Folder path, both file paths, and a one-line status per pipeline step","End-to-end test"]],
+    tests:["End to end: one request produces exactly one folder with exactly 2 files.","A request whose draft fails QA produces no folder and a FAILED reply listing the failed checks."]},
+  t_persona:{type:"Tool",cls:"tl",name:"Audience Persona Lookup",id:"AUDIENCE_PERSONA_LOOKUP_TOOL_ID",fn:"Returns the 3 saved personas closest to the request. The agent picks one.",steplabel:"search",
+    inputs:[["topic","string","required","Topic of the content"],["audience_hint","string","optional","Who the user said it is for"]],
+    steps:[["1","personas","search","dataset_id: knowledge:AUDIENCE_PERSONAS_KNOWLEDGE_ID · query: {{params.topic}} {{params.audience_hint}} · query_type: vector · page_size: 3"]],
+    output:`{ "personas": "{{steps.personas.output.results}}" }`,tests:["topic “AI agents”, audience_hint “small business owners”. Expected: 3 persona rows."]},
+  t_outline:{type:"Tool",cls:"tl",name:"Outline Template Lookup",id:"OUTLINE_TEMPLATE_LOOKUP_TOOL_ID",fn:"Returns the section template for a content format.",steplabel:"search",
+    inputs:[["format","string","required","e.g. blog post, newsletter"]],
+    steps:[["1","template","search","dataset_id: knowledge:CONTENT_TEMPLATES_KNOWLEDGE_ID · query: {{params.format}} · query_type: keyword · page_size: 1"]],
+    output:`{ "template": "{{steps.template.output.results}}" }`,tests:["format “blog post”. Expected: 1 template row."]},
+  t_wordcount:{type:"Tool",cls:"tl",name:"Word Count Allocator",id:"WORD_COUNT_ALLOCATOR_TOOL_ID",fn:"Splits the target length across outline sections.",steplabel:"js_code_transformation",
+    inputs:[["sections","array","required","Section names in order"],["total_words","number","required","Target length"]],
+    steps:[["1","allocate","js_code_transformation","code: weights intro and close at 10 percent each, splits the rest evenly, rounds to 10; returns { allocations }"]],
+    output:`{ "allocations": "{{steps.allocate.output.transformed.allocations}}" }`,tests:["5 sections, 900 words. Expected: allocations sum to 900 within 10."]},
+  t_voice:{type:"Tool",cls:"tl",name:"Brand Voice Lookup",id:"BRAND_VOICE_LOOKUP_TOOL_ID",fn:"Returns voice rules and example lines for a content type.",steplabel:"search",
+    inputs:[["content_type","string","required","e.g. blog post"]],
+    steps:[["1","voice","search","dataset_id: knowledge:BRAND_VOICE_KNOWLEDGE_ID · query: {{params.content_type}} · query_type: vector · page_size: 5"]],
+    output:`{ "rules": "{{steps.voice.output.results}}" }`,tests:["content_type “blog post”. Expected: at least 3 rule rows."]},
+  t_readability:{type:"Tool",cls:"tl",name:"Readability Score",id:"READABILITY_SCORE_TOOL_ID",fn:"Scores reading level and flags long sentences.",steplabel:"js_code_transformation",
+    inputs:[["text","string","required","Draft text"]],
+    steps:[["1","score","js_code_transformation","code: Flesch-Kincaid grade, Flesch reading ease, sentences over 25 words; returns { grade, flesch, long_sentences }"]],
+    output:`{ "grade": "{{steps.score.output.transformed.grade}}", "flesch": "{{steps.score.output.transformed.flesch}}", "long_sentences": "{{steps.score.output.transformed.long_sentences}}" }`,tests:["A 3-sentence plain paragraph. Expected: grade under 9."]},
+  t_textchecks:{type:"Tool",cls:"tl",name:"Text Checks",id:"TEXT_CHECKS_TOOL_ID",fn:"Runs the deterministic QA checks.",steplabel:"js_code_transformation",
+    inputs:[["text","string","required","Final Markdown"],["target_words","number","required","From the plan"],["meta","string","required","Meta description"]],
+    steps:[["1","checks","js_code_transformation","code: word count within 10 percent, em dash search, [<placeholder>] search, meta under 155 characters, title and CTA present; returns { checks, all_pass }"]],
+    output:`{ "checks": "{{steps.checks.output.transformed.checks}}", "all_pass": "{{steps.checks.output.transformed.all_pass}}" }`,tests:["Text with an em dash. Expected: all_pass false."]},
+  t_gdoc:{type:"Tool",cls:"tl",name:"Save Package to Folder",id:"SAVE_PACKAGE_TOOL_ID",fn:"Creates the request folder and writes the two deliverable files into it.",steplabel:"Bash → Write → Write",approval:"always-ask on the agent",
+    inputs:[["output_root","string","required","Folder for all packages, e.g. @content-army/"],["folder_name","string","required","YYYY-MM-DD_topic-slug"],["title","string","required","Final title"],["final_markdown","string","required","Final content + meta + sources + QA table"],["working_papers","string","required","Research, audience, plan, review log"]],
+    steps:[["1","folder","Bash","command: mkdir -p {{params.output_root}}/{{params.folder_name}}"],
+           ["2","final_file","Write","file_path: @{{params.output_root}}/{{params.folder_name}}/01-final.md · content: # {{params.title}} + {{params.final_markdown}}"],
+           ["3","working_file","Write","file_path: @{{params.output_root}}/{{params.folder_name}}/02-working-papers.md · content: {{params.working_papers}}"]],
+    output:`{ "folder": "{{params.output_root}}/{{params.folder_name}}", "final_file": "{{params.output_root}}/{{params.folder_name}}/01-final.md", "working_file": "{{params.output_root}}/{{params.folder_name}}/02-working-papers.md" }`,
+    tests:["Test title and text. Expected: an approval prompt, then one folder holding 01-final.md and 02-working-papers.md.","Run twice with the same folder_name. Expected: mkdir -p succeeds and both files are overwritten, not duplicated."]},
+  t_search:{type:"Tool",cls:"tl",name:"Web Search",id:"WEB_SEARCH_TOOL_ID",fn:"Fetches one search-results page for a query and returns its text and links.",steplabel:"browserless_scrape → js_code",
+    inputs:[["query","string","required","What to search for"],["num_results","number","optional","Default 8"]],
+    steps:[["1","search","browserless_scrape","website_url: https://duckduckgo.com/html/?q={{params.query}} · step output map results: {{organic}}"],["2","shortlist","js_code_transformation","code: keep title, link, snippet, date for the first num_results; returns { results, scanned, kept }"]],
+    output:`{ "results": "{{steps.shortlist.output.transformed.results}}", "scanned": "{{steps.shortlist.output.transformed.scanned}}", "kept": "{{steps.shortlist.output.transformed.kept}}" }`,tests:["query “AI agents small business”. Expected: 5 to 8 results, each with a link."]},
+  t_fetch:{type:"Tool",cls:"tl",name:"Fetch Web Page",id:"FETCH_WEB_PAGE_TOOL_ID",fn:"Returns the text of one web page.",steplabel:"browserless_scrape",
+    inputs:[["url","string","required","Page to read"]],
+    steps:[["1","scrape","browserless_scrape","website_url: {{params.url}} · method: Text"]],
+    output:`{ "page": "{{steps.scrape.output.output.page}}" }`,tests:["A known article URL. Expected: page text."]},
+  t_wiki:{type:"Tool",cls:"tl",name:"Wikipedia Lookup",id:"WIKIPEDIA_LOOKUP_TOOL_ID",fn:"Returns the summary of a Wikipedia article.",steplabel:"api_call",
+    inputs:[["topic","string","required","Article title"]],
+    steps:[["1","wiki","api_call","method: GET · url: https://en.wikipedia.org/api/rest_v1/page/summary/{{params.topic}} · response_type: json"]],
+    output:`{ "summary": "{{steps.wiki.output.response_body.extract}}", "status": "{{steps.wiki.output.status}}" }`,tests:["topic “Large language model”. Expected: summary text, status 200."]}
+};
+
+const D_EXTRA={
+  scout:{icon:ICO.search,returns:"Facts, stats, source list"},
+  audience:{icon:ICO.users,returns:"Audience profile"},
+  planner:{icon:ICO.list,returns:"Section outline"},
+  drafter:{icon:ICO.pen,returns:"Full Markdown draft"},
+  reviewer:{icon:ICO.eye,returns:"PASS or REVISE + issues"},
+  qa:{icon:ICO.check,returns:"Final package or FAILED"},
+  master:{icon:ICO.compass}
+};
+let ORDER=["scout","audience","planner","drafter","reviewer","qa"];
+const esc=s=>String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const MODELS=[
+ ["Claude (from list_llm_models)",[["haiku","Claude Haiku 5.5 (haiku)",0],["sonnet","Claude Sonnet 5.5 (sonnet)",0],["opus","Claude Opus 5.5 (opus)",0]]]];
+const MLAB={};MODELS.forEach(([g,ms])=>ms.forEach(([v,l,c])=>MLAB[v]={l,c}));
+let SEL={};try{SEL=JSON.parse(localStorage.getItem("ca_models")||"{}")}catch(e){}
+const curModel=k=>SEL[k]&&MLAB[SEL[k]]?SEL[k]:"sonnet";
+const opts=(v,full)=>MODELS.map(([g,ms])=>`<optgroup label="${g}">${ms.map(([mv,l,c])=>`<option value="${mv}"${mv===v?" selected":""}>${l}${full?` · ${c} credits/token`:""}</option>`).join("")}</optgroup>`).join("");
+const msel=(k,cls)=>`<select class="msel ${cls||""}" data-k="${k}" title="Model">${opts(curModel(k),cls==="big")}</select>`;
+function setModel(k,v){SEL[k]=v;try{localStorage.setItem("ca_models",JSON.stringify(SEL))}catch(e){}
+ document.querySelectorAll(`.msel[data-k="${k}"]`).forEach(s=>s.value=v);
+ document.querySelectorAll(`.mid[data-k="${k}"]`).forEach(e=>e.textContent=v);}
+document.addEventListener("change",e=>{const s=e.target.closest(".msel");if(!s)return;
+ if(s.dataset.k==="__all"){["master",...ORDER].forEach(k=>setModel(k,s.value));}else setModel(s.dataset.k,s.value);});
+const cv=document.getElementById("cv");document.querySelector(".allm").innerHTML="Set all agents "+`<select class="msel" data-k="__all">${opts("sonnet",true)}</select>`;
+const toolKeyOf=n=>Object.keys(D).find(k=>D[k]&&D[k].type==="Tool"&&D[k].name===n);const toolKey={};Object.entries(D).forEach(([k,v])=>{if(v.type==="Tool")toolKey[v.name]=k});
+
+function node(id,x,y,w,html){const el=document.createElement("div");el.className="n";el.id="n_"+id;el.dataset.id=id;el.style.left=x+"px";el.style.top=y+"px";el.style.width=w+"px";el.innerHTML=html;cv.appendChild(el);return el}
+
+function buildNodes(){
+// Trigger
+node("trigger",40,110,230,`<div class="nh"><div class="ic tg">${ICO.msg}</div><div><div class="nm">Chat message</div><div class="ty">Trigger</div></div></div>
+<div class="nb"><div class="fn">User sends a content request: topic, format, audience.</div></div>`);
+// Master
+const m=D.master;
+node("master",620,40,420,`<div class="nh"><div class="ic wf">${D_EXTRA.master.icon}</div><div><div class="nm">${esc(m.name)}</div><div class="ty">Master Coordinator · Workforce</div></div>${msel("master")}</div>
+<div class="nb"><div class="fn">${esc(m.fn)}</div>
+<div><div class="lab">Routing</div><div class="chips">${ORDER.map((k,i)=>`<span class="chip">${i+1}. ${esc(D[k].name)}</span>`).join("")}</div></div>
+<div><div class="lab">Guardrails</div><div class="chips"><span class="chip">Fixed order</span><span class="chip">Full context per handoff</span><span class="chip warn">Max 2 revisions</span></div></div></div>`);
+// Agents
+ORDER.forEach((k,i)=>{
+  const a=D[k];
+  const tools=`<div class="chips"><span class="chip tl">${ICO.wrench} ${a.tools.length} tool${a.tools.length===1?"":"s"} attached ${a.tools.length?"↓":""}</span></div>`;
+  node(k,40+i*300,580,255,`<div class="nh"><div class="ic ag">${(D_EXTRA[k]||{}).icon||ICO.users}</div><div><div class="nm">${esc(a.name)}</div><div class="ty">Agent · step ${i+1}</div></div>${msel(k)}</div>
+  <div class="nb"><div class="fn">${esc(a.fn)}</div>
+  <div><div class="lab">Tools</div>${tools}</div>
+  <div><div class="lab">Knowledge</div>${a.knowledge&&a.knowledge!=="None"?`<div class="chips"><span class="chip">${ICO.book} ${esc(a.knowledge)}</span></div>`:`<div class="none">None</div>`}</div>
+  ${a.approval&&a.approval!=="None"?`<div><div class="lab">Approval</div><div class="chips"><span class="chip warn">${ICO.flag} ${esc(a.approval)}</span></div></div>`:""}
+  <div><div class="lab">Returns</div><div class="chips"><span class="chip">${esc(a.returns||(D_EXTRA[k]||{}).returns||"")}</span></div></div></div>`).classList.add("agent");
+});
+// Output
+node("output",1140,20,390,`<div class="nh"><div class="ic out">${ICO.pkg}</div><div><div class="nm">${esc(D.output.name)}</div><div class="ty">Output · what comes back</div></div><span class="badge">2 files + reply</span></div>
+<div class="nb"><div class="fn">${esc(D.output.fn)}</div>
+<div><div class="lab">Folder structure</div><div class="tree">${esc(D.output.tree)}</div></div>
+<div><div class="lab">Gate</div><div class="chips"><span class="chip warn">${ICO.flag} Saved only after QA PASS + your approval</span></div></div></div>`);
+
+if(EDIT){const xs=ORDER.length;const g=node("__addagent",40+xs*300,580,200,`<div class="gin">${ICO.users}<b>+ Add agent</b><span>New step in the pipeline</span></div>`);g.classList.add("ghost");g.dataset.add="agent";}
+}
+buildNodes();
+function placeTools(){
+  cv.querySelectorAll(".n.tool,.n.gt").forEach(e=>e.remove());if(!ORDER.length)return;
+  const bottom=Math.max(...ORDER.map(k=>{const e=document.getElementById("n_"+k);return e.offsetTop+e.offsetHeight}));
+  ORDER.forEach(k=>{const a=document.getElementById("n_"+k);let y=bottom+70;
+    D[k].tools.forEach(([tn])=>{const tk=toolKeyOf(tn),t=D[tk];if(!t)return;
+      const el=node(tk+"__"+k,a.offsetLeft+38,y,217,`<div class="nh"><div class="ic tl">${ICO.wrench}</div><div><div class="nm">${esc(t.name)}</div><div class="ty">${esc(t.steplabel||"Tool")}</div></div>${t.approval?'<span class="badge flagb">'+ICO.flag+'</span>':""}</div>`);
+      el.classList.add("tool");if(t.approval)el.classList.add("appr");el.dataset.id=tk;el.dataset.owner=k;
+      y+=el.offsetHeight+14;});
+    if(EDIT){const g=node("__addtool__"+k,a.offsetLeft+38,y,217,`<div class="gin row">${ICO.wrench}<b>+ Add tool</b></div>`);g.classList.add("ghost","gt");g.dataset.add="tool";g.dataset.owner=k;}});
+}
+placeTools();
+const svg=document.getElementById("edges");
+const R=id=>{const e=document.getElementById("n_"+id);return{x:e.offsetLeft,y:e.offsetTop,w:e.offsetWidth,h:e.offsetHeight}};
+function path(d,warn,both){const p=document.createElementNS("http://www.w3.org/2000/svg","path");p.setAttribute("d",d);p.setAttribute("fill","none");
+p.setAttribute("stroke",warn?"var(--warn)":"var(--edge)");p.setAttribute("stroke-width","2");if(warn)p.setAttribute("stroke-dasharray","6 5");
+p.setAttribute("marker-end",`url(#${warn?"arw":"ar"})`);if(both)p.setAttribute("marker-start","url(#ar)");svg.appendChild(p)}
+function lab(x,y,t,cls){const l=document.createElement("div");l.className="elab "+(cls||"");l.style.left=x+"px";l.style.top=y+"px";l.innerHTML=t;cv.appendChild(l)}
+function draw(){
+  const t=R("trigger"),M=R("master");
+  path(`M${t.x+t.w},${t.y+t.h/2} C${t.x+t.w+150},${t.y+t.h/2} ${M.x-150},${M.y+M.h/2} ${M.x},${M.y+M.h/2}`);
+  lab((t.x+t.w+M.x)/2,(t.y+t.h/2+M.y+M.h/2)/2,"starts");
+  ORDER.forEach((k,i)=>{const a=R(k);const sx=M.x+40+(ORDER.length>1?i*(M.w-80)/(ORDER.length-1):(M.w-80)/2),sy=M.y+M.h,ex=a.x+a.w/2,ey=a.y;
+    path(`M${sx},${sy} C${sx},${sy+90} ${ex},${ey-90} ${ex},${ey}`,false,true);
+    lab((sx+ex)/2,(sy+ey)/2+4,i+1,"step");});
+  if(ORDER.includes("drafter")&&ORDER.includes("reviewer")){const d=R("drafter"),r=R("reviewer");const y0=Math.max(d.y+d.h,r.y+r.h);const gx=(d.x+d.w+r.x)/2;
+  path(`M${r.x},${r.y+r.h-30} C${r.x-40},${y0+45} ${d.x+d.w+40},${y0+45} ${d.x+d.w},${d.y+d.h-30}`,true);
+  lab(gx,y0+40,"REVISE → Drafter (max 2)","warn");}
+  const o=R("output");
+  path(`M${M.x+M.w},${M.y+M.h/2} C${M.x+M.w+50},${M.y+M.h/2} ${o.x-50},${o.y+60} ${o.x},${o.y+60}`);
+  lab((M.x+M.w+o.x)/2,(M.y+M.h/2+o.y+60)/2,"delivers");
+  cv.querySelectorAll(".n.tool").forEach(t=>{if(!document.getElementById("n_"+t.dataset.owner))return;const a=R(t.dataset.owner);const sx=a.x+20,ty2=t.offsetTop+t.offsetHeight/2;
+    path(`M${sx},${a.y+a.h} L${sx},${ty2-10} Q${sx},${ty2} ${sx+10},${ty2} L${t.offsetLeft},${ty2}`);});
+}
+draw();
+function rebuild(){cv.querySelectorAll(".n,.elab").forEach(e=>e.remove());svg.querySelectorAll(":scope > path").forEach(p=>p.remove());
+  Object.entries(D).forEach(([k,v])=>NAMEKEY[v.name]=k);buildNodes();{const tn={size:Object.values(D).filter(v=>v.type==="Tool").length};const c=document.getElementById("cnt");if(c)c.textContent=`1 coordinator, ${ORDER.length} agents, ${tn.size} tools`;}placeTools();draw();
+  if(OPENK){if(D[OPENK])open(OPENK,OPENO);else closeDr()}if(tv.style.display==="block")renderTable();}
+
+// pan & zoom
+const vp=document.getElementById("vp");let s=1,tx=0,ty=0;
+const apply=()=>{cv.style.transform=`translate(${tx}px,${ty}px) scale(${s})`;vp.style.backgroundPosition=`${tx}px ${ty}px`;vp.style.backgroundSize=`${22*s}px ${22*s}px`};
+function fit(){const W=vp.clientWidth,H=vp.clientHeight,cw=Math.max(...[...cv.querySelectorAll(".n")].map(e=>e.offsetLeft+e.offsetWidth))+30,ch=Math.max(...[...cv.querySelectorAll(".n")].map(e=>e.offsetTop+e.offsetHeight))+30;
+s=Math.min(W/cw,(H-60)/ch,1.1);tx=(W-cw*s)/2;ty=Math.max(10,(H-ch*s)/2);apply()}
+function zoomAt(f,cx,cy){const ns=Math.min(2.2,Math.max(.2,s*f));tx=cx-(cx-tx)*ns/s;ty=cy-(cy-ty)*ns/s;s=ns;apply()}
+vp.addEventListener("wheel",e=>{e.preventDefault();zoomAt(e.deltaY<0?1.1:1/1.1,e.offsetX,e.offsetY)},{passive:false});
+document.getElementById("zi").onclick=()=>zoomAt(1.2,vp.clientWidth/2,vp.clientHeight/2);
+document.getElementById("zo").onclick=()=>zoomAt(1/1.2,vp.clientWidth/2,vp.clientHeight/2);
+document.getElementById("zf").onclick=fit;
+const pts=new Map();let moved=0,last=null,pinch=null;
+vp.addEventListener("pointerdown",e=>{if(e.target.closest("select"))return;pts.set(e.pointerId,e);moved=0;last={x:e.clientX,y:e.clientY};vp.classList.add("drag");vp.setPointerCapture(e.pointerId)});
+vp.addEventListener("pointermove",e=>{if(!pts.has(e.pointerId))return;pts.set(e.pointerId,e);
+ if(pts.size===2){const [a,b]=[...pts.values()];const dist=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);const cx=(a.clientX+b.clientX)/2,cy=(a.clientY+b.clientY)/2-52;
+   if(pinch)zoomAt(dist/pinch,cx,cy);pinch=dist;moved=99;return}
+ const dx=e.clientX-last.x,dy=e.clientY-last.y;moved+=Math.abs(dx)+Math.abs(dy);tx+=dx;ty+=dy;last={x:e.clientX,y:e.clientY};apply()});
+const up=e=>{if(e.target.closest&&e.target.closest("select")){pts.delete(e.pointerId);return}pts.delete(e.pointerId);if(pts.size<2)pinch=null;vp.classList.remove("drag");
+ if(moved<6&&e.type==="pointerup"){const el=document.elementFromPoint(e.clientX,e.clientY);const chip=el&&el.closest("[data-tool]");const n=el&&el.closest(".n");
+   if(chip)open(chip.dataset.tool);else if(n&&n.dataset.add)addClick(n.dataset.add,n.dataset.owner);else if(n&&D[n.dataset.id])open(n.dataset.id,n.dataset.owner);}};
+vp.addEventListener("pointerup",up);vp.addEventListener("pointercancel",up);
+
+// drawer
+const dr=document.getElementById("dr");
+const HI=r=>D.master.handoffs.indexOf(r);const NAMEKEY={"Coordinator":"master","QA and Delivery":"qa"};Object.entries(D).forEach(([k,v])=>NAMEKEY[v.name]=k);
+const lk=(k,label,owner)=>k&&D[k]?`<a class="lk" data-go="${k}"${owner?` data-owner="${owner}"`:""}>${esc(label||D[k].name)}</a>`:esc(label);
+const usedBy=tk=>ORDER.filter(a=>D[a]).filter(a=>D[a].tools.some(t=>NAMEKEY[t[0]]===tk));
+var EDIT=false;
+const ed=(k,path,v,block)=>{if(!EDIT)return block?`<pre>${esc(v)}</pre>`:esc(v);
+ return block?`<pre class="ed" contenteditable="plaintext-only" spellcheck="true" data-k="${k}" data-p="${path}">${esc(v)}</pre>`:`<span class="ed" contenteditable="plaintext-only" spellcheck="true" data-k="${k}" data-p="${path}">${esc(v)}</span>`};
+const TR_GROUPS=[["Code and prompt steps",["js_code_transformation","python_code_transformation","prompt_completion"]],
+ ["Claude Code built-in tools",["Read","Write","Edit","Glob","Grep","Bash","WebFetch","WebSearch","Agent","Skill","TodoWrite","NotebookEdit"]]];
+const TRS=TR_GROUPS.flatMap(g=>g[1]);
+const CC_PARAMS={Read:"file_path: @path/to/file",Write:"file_path: @path/to/file · content: {{params.input}}",Edit:"file_path: @path/to/file · old_string · new_string",
+ Glob:"pattern: **/*.md",Grep:"pattern: {{params.input}} · path: @path",Bash:"command: ...",WebFetch:"url: {{params.input}} · prompt: what to extract",
+ WebSearch:"query: {{params.input}}",Agent:"subagent_type · prompt: {{params.input}}",Skill:"skill: <skill-name> · args: {{params.input}}",
+ TodoWrite:"todos: [...]",NotebookEdit:"notebook_path: @path · new_source",prompt_completion:"prompt: {{params.input}} · model"};
+const trOpts=v=>(TRS.includes(v)?"":`<optgroup label="Current (not in list)"><option selected>${esc(v)}</option></optgroup>`)+TR_GROUPS.map(([g,l])=>`<optgroup label="${g}">${l.map(o=>`<option${o===v?" selected":""}>${o}</option>`).join("")}</optgroup>`).join("");
+const trSel=(k,i,v)=>`<select class="absel trsel" data-k="${k}" data-p="steps.${i}.2">${trOpts(v)}</select>`;
+const rmB=(k,arr,i,t)=>`<button class="rmrow" data-k="${k}" data-arr="${arr}" data-i="${i}" title="${t||"Remove"}">${t?t:"✕"}</button>`;
+const abSel=(k,i,v)=>EDIT?`<select class="absel" data-k="${k}" data-p="tools.${i}.2">${["never-ask","ask-first","always-ask"].map(o=>`<option${o===v?" selected":""}>${o}</option>`).join("")}</select>`:esc(v);
+function spec(k){const c=D[k];let h="";
+ h+=`<div><div class="mono">${c.id}</div><p style="margin:6px 0 0">${ed(k,"fn",c.fn)}</p></div>`;
+ if(c.type==="Output"){
+  h+=`<div><h4>Folder structure</h4>${ed(k,"tree",c.tree,1)}</div>
+  <div><h4>Deliverables and requirements</h4><table><tr><th>Deliverable</th><th>Lives in</th><th>Produced by</th><th>Requirements</th><th>Checked by</th></tr>${c.deliverables.map((r,i)=>`<tr><td><b>${ed(k,`deliverables.${i}.0`,r[0])}</b></td><td>${ed(k,`deliverables.${i}.1`,r[1])}</td><td>${lk(r[2])}</td><td>${ed(k,`deliverables.${i}.3`,r[3])}</td><td>${ed(k,`deliverables.${i}.4`,r[4])}</td></tr>`).join("")}</table></div>
+  <div><h4>Written by</h4>${lk("t_gdoc",null,"qa")} <span class="mono">(Bash mkdir → Write ×2, always-ask)</span></div>`;
+ } else if(c.type==="Tool"){
+  h+=`<div><h4>Used by</h4>${usedBy(k).map(a=>lk(a)+` · ${lk(k,"show this tool under it",a)}`).join("<br>")}</div>`;
+  h+=`<div><h4>params_schema</h4><table><tr><th>Name</th><th>Type</th><th>Required</th><th>Notes</th>${EDIT?"<th></th>":""}</tr>${c.inputs.map((r,i)=>`<tr>${r.map((x,j)=>`<td>${ed(k,`inputs.${i}.${j}`,x)}</td>`).join("")}${EDIT?`<td>${rmB(k,"inputs",i)}</td>`:""}</tr>`).join("")}</table>${EDIT?`<button class="addrow" data-row="input" data-k="${k}">+ Add input</button>`:""}</div>
+  <div><h4>transformations.steps</h4><table><tr><th>#</th><th>name</th><th>transformation</th><th>params</th>${EDIT?"<th></th>":""}</tr>${c.steps.map((r,i)=>`<tr>${r.map((x,j)=>`<td>${j===2&&EDIT?trSel(k,i,x):ed(k,`steps.${i}.${j}`,x)}</td>`).join("")}${EDIT?`<td>${rmB(k,"steps",i)}</td>`:""}</tr>`).join("")}</table>${EDIT?`<button class="addrow" data-row="step" data-k="${k}">+ Add step</button>`:""}</div>
+  <div><h4>transformations.output</h4>${ed(k,"output",c.output,1)}</div>`;
+ } else {
+  h+=`<div><h4>Settings</h4><table><tr><th>Setting</th><th>Value</th></tr>${c.type==="Agent"?`<tr><td>Workforce</td><td>${lk("master")}</td></tr>`:`<tr><td>Agents</td><td>${ORDER.map(a=>lk(a)).join(", ")}</td></tr>`}<tr><td>model</td><td>${msel(k,"big")}<div class="mono mid" data-k="${k}" style="margin-top:4px">${curModel(k)}</div></td></tr><tr><td>Trigger</td><td>${ed(k,"trigger",c.trigger)}</td></tr>${c.knowledge?`<tr><td>Knowledge</td><td>${ed(k,"knowledge",c.knowledge)}</td></tr><tr><td>Approval</td><td>${ed(k,"approval",c.approval)}</td></tr>`:""}</table></div>
+  <div><h4>System prompt</h4>${ed(k,"prompt",c.prompt,1)}</div>`;
+  if(c.type==="Agent"&&(EDIT||(c.tools&&c.tools.length)))h+=`<div><h4>actions</h4><table><tr><th>Tool</th><th>Use when</th><th>action_behaviour</th>${EDIT?"<th></th>":""}</tr>${c.tools.map((r,i)=>`<tr><td>${lk(NAMEKEY[r[0]],r[0],k)}</td><td>${ed(k,`tools.${i}.1`,r[1])}</td><td class="mono">${abSel(k,i,r[2]||"never-ask")}</td>${EDIT?`<td>${rmB(k,"tools",i,"Detach")}</td>`:""}</tr>`).join("")}</table>${EDIT?`<button class="addrow" data-row="tool" data-k="${k}">+ Add tool</button>`:""}</div>`;
+  if(c.handoffs)h+=`<div><h4>Handoffs</h4><table><tr><th>From</th><th>To</th><th>Condition</th><th>Data</th></tr>${c.handoffs.map(r=>`<tr><td>${lk(NAMEKEY[r[0]],r[0])}</td><td>${lk(NAMEKEY[r[1]],r[1])}</td><td>${ed(k,`handoffs.${HI(r)}.2`,r[2])}</td><td>${ed(k,`handoffs.${HI(r)}.3`,r[3])}</td></tr>`).join("")}</table></div>`;
+ }
+ h+=`<div><h4>Tests</h4><ul>${c.tests.map((t,i)=>`<li>${ed(k,`tests.${i}`,t)}${EDIT?" "+rmB(k,"tests",i):""}</li>`).join("")}</ul>${EDIT?`<button class="addrow" data-row="test" data-k="${k}">+ Add test</button>`:""}</div>`;return h}
+function head(k){const c=D[k];const ic=c.type==="Tool"?ICO.wrench:c.type==="Output"?ICO.pkg:(D_EXTRA[k]||{}).icon;const cls=c.type==="Tool"?"tg":c.type==="Workforce"?"wf":c.type==="Output"?"out":"ag";
+ return `<div class="ic ${cls}">${ic}</div><div><div class="nm">${esc(c.name)}</div><div class="ty">${c.type}</div></div>`}
+let OPENK=null,OPENO=null;function open(k,owner){OPENK=k;OPENO=owner;const E_=EDITS[k]||{};const n=E_.full?1:Object.keys(E_.fields||{}).length;document.getElementById("dhh").innerHTML=head(k)+(n?`<span class="badge edb">${E_.full?(ORIG[k]?"edited":"added by you"):n+" edit"+(n>1?"s":"")}</span>${EDIT&&ORIG[k]?`<button class="rst" data-k="${k}">Reset to original</button>`:""}`:"")+(EDIT&&!ORIG[k]&&D[k]&&(D[k].type==="Agent"||D[k].type==="Tool")?`<button class="rst" data-del="${k}">Delete</button>`:"")+`<button class="x" onclick="closeDr()">✕</button>`;document.getElementById("dbb").innerHTML=spec(k);dr.classList.add("open");dr.classList.toggle("wide",D[k].type==="Output");
+ document.querySelectorAll(".n").forEach(n=>n.classList.toggle("sel",n.dataset.id===k&&(!owner||!n.dataset.owner||n.dataset.owner===owner)))}
+function closeDr(){OPENK=null;dr.classList.remove("open");document.querySelectorAll(".n").forEach(n=>n.classList.remove("sel"))}
+
+function go(k,owner){
+  if(vp.style.display==="none"){document.querySelector('.tabs button[data-v="canvas"]').click()}
+  const el=(owner&&document.getElementById(`n_${k}__${owner}`))||document.getElementById("n_"+k)||cv.querySelector(`.n[data-id="${k}"]`);
+  if(!el)return;
+  const W=vp.clientWidth,H=vp.clientHeight,narrow=W<700;
+  s=Math.max(s,narrow?.7:.85);
+  const visW=narrow?W:W-Math.min(460,W);
+  tx=visW/2-(el.offsetLeft+el.offsetWidth/2)*s;ty=H/2-(el.offsetTop+el.offsetHeight/2)*s;
+  cv.style.transition="transform .35s ease";apply();setTimeout(()=>cv.style.transition="",400);
+  if(narrow)closeDr();else open(k,el.dataset.owner);
+  document.querySelectorAll(".n").forEach(n=>n.classList.toggle("sel",n===el));
+  el.classList.remove("flash");void el.offsetWidth;el.classList.add("flash");
+}
+document.addEventListener("click",e=>{const a=e.target.closest(".lk");if(a){e.preventDefault();go(a.dataset.go,a.dataset.owner)}});
+// table view (complete picture)
+const tv=document.getElementById("tv");
+const allKeys=()=>["output","master",...ORDER,...Object.keys(D).filter(k=>D[k].type==="Tool")];
+function renderTable(){tv.innerHTML=`<div class="card"><h3>Field map: spec term to workforce server field (checked against the live catalog, 11/16/2026)</h3><table><tr><th>In this spec</th><th>Workforce server field</th><th>Value format</th></tr><tr><td>Tool inputs</td><td>params_schema.properties</td><td>type: string, number, array, boolean. OAuth accounts use metadata.content_type: oauth_account</td></tr><tr><td>Tool input in a step</td><td>{{params.&lt;name&gt;}}</td><td>A bare {{name}} does not resolve</td></tr><tr><td>Earlier step output</td><td>{{steps.&lt;step&gt;.output.&lt;field&gt;}}</td><td>Code steps add .transformed: {{steps.x.output.transformed.key}}</td></tr><tr><td>Step type</td><td>transformations.steps[].transformation</td><td>browserless_scrape, search, api_call, js_code_transformation, prompt_completion, Claude Code tools (Read, Write, Edit, Bash…)</td></tr><tr><td>Tool output</td><td>transformations.output + output_schema</td><td>Keys must match in both</td></tr><tr><td>Knowledge table</td><td>search step dataset_id</td><td>knowledge:&lt;knowledge_set_id&gt;, query_type required</td></tr><tr><td>Model</td><td>agent model</td><td>Picked per agent from the model dropdowns. Every option is a live catalog value with status available and no extra API key needed</td></tr><tr><td>Human approval</td><td>actions[].action_behaviour</td><td>never-ask, ask-first, always-ask</td></tr><tr><td>Tool in an agent prompt</td><td>{{_actions.&lt;action_id&gt;}}</td><td>16-char hex, read after tools are attached</td></tr><tr><td>Agent variable</td><td>{{name}} in the agent prompt</td><td>Saved value per agent; none used here</td></tr><tr><td>Multi-agent routing</td><td>Workforce</td><td>Sub-agents in an agent's actions are deprecated</td></tr><tr><td>*_ID placeholders</td><td>studio_id, agent_id, knowledge set id</td><td>Assigned by the workforce server when each piece is created</td></tr></table></div><div class="card"><h3>Build order</h3><div>1. Tools: ${Object.values(D).filter(v=>v.type==="Tool").map(v=>v.name).join(", ")} → 2. Agents: ${ORDER.map(k=>D[k].name).join(", ")} → 3. Workforce: ${D.master.name}</div></div>`+
+ allKeys().map(k=>`<div class="card"><div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">${head(k)}</div>${spec(k)}</div>`).join("");}
+renderTable();
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".tabs button").forEach(x=>x.classList.toggle("on",x===b));
+ const t=b.dataset.v==="table";tv.style.display=t?"block":"none";vp.style.display=t?"none":"block";document.querySelectorAll(".zoom,.hint,.legend").forEach(e=>e.style.display=t?"none":"");closeDr();if(!t)fit()});
+window.addEventListener("resize",fit);
+document.fonts?document.fonts.ready.then(()=>{placeTools();svg.querySelectorAll(":scope > path").forEach(p=>p.remove());cv.querySelectorAll(".elab").forEach(l=>l.remove());draw();fit()}):0;
+fit();
+
+// ---------- editing + persistence ----------
+const ORIG=JSON.parse(JSON.stringify(D));const ORIG_ORDER=ORDER.slice();const ORIG_EXTRA=new Set(Object.keys(D_EXTRA));const clone=o=>JSON.parse(JSON.stringify(o));
+let EDITS={};let DBX=null;const writing={};
+const getP=(o,p)=>p.split(".").reduce((a,x)=>a==null?a:a[x],o);
+function setP(o,p,v){const ps=p.split(".");let a=o;for(let i=0;i<ps.length-1;i++)a=a[ps[i]];a[ps[ps.length-1]]=v}
+function toast(t){const e=document.getElementById("toast");e.textContent=t;e.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove("show"),1600)}
+function status(t){document.getElementById("savest").textContent=t}
+function applyAll(){
+  for(const k in EDITS){if(k===LAYOUT)continue;const e=EDITS[k]||{};
+    if(e.full){D[k]=clone(e.full)}else if(D[k]){const f=e.fields||{};for(const p in f){try{setP(D[k],p,f[p])}catch(x){}}}
+    const m=e.model;if(m&&MLAB[m]){SEL[k]=m}}
+  const L=EDITS[LAYOUT];
+  if(L&&L.extra)for(const k in L.extra){D_EXTRA[k]={icon:ICO[L.extra[k].icon]||ICO.users,iconName:L.extra[k].icon,returns:L.extra[k].returns||""}}
+  if(L&&L.order)ORDER=L.order.slice();
+  ORDER=ORDER.filter(k=>D[k]&&D[k].type==="Agent");
+  rebuild();}
+function resetAll(){Object.keys(D).forEach(k=>{if(!ORIG[k])delete D[k]});for(const k in ORIG)D[k]=clone(ORIG[k]);
+  Object.keys(D_EXTRA).forEach(k=>{if(!ORIG_EXTRA.has(k))delete D_EXTRA[k]});ORDER=ORIG_ORDER.slice();}
+function refresh(){if(OPENK)open(OPENK,OPENO);if(tv.style.display==="block")renderTable()}
+const LAYOUT="canvas_layout";
+async function persist(k){const body=EDITS[k]||{};
+  try{localStorage.setItem("ca_edits",JSON.stringify(EDITS))}catch(e){}
+  if(!DBX){status("Saved in this browser");return}
+  if(writing[k]){writing[k].again=true;return}writing[k]={};
+  try{do{writing[k].again=false;const b=EDITS[k];if(b&&(b.full||b.order||Object.keys(b.fields||{}).length||b.model))await DBX.doc("edits/"+k).set({...b,updated_at:new Date().toISOString()});else await DBX.doc("edits/"+k).delete();}while(writing[k].again);
+    status("All edits saved")}
+  catch(e){status(e&&e.code==="invalid_argument"?"View only: edits are not saved":"Couldn't save. Try again");}
+  finally{delete writing[k]}}
+function edit(k,p,v){if(getP(D[k],p)===v)return;setP(D[k],p,v);if(EDITS[k]&&EDITS[k].full){EDITS[k].full=clone(D[k]);if(p==="fn"||p.startsWith("steps"))rebuild();status("Saving…");persist(k);toast("Saved");return}EDITS[k]=EDITS[k]||{fields:{}};EDITS[k].fields=EDITS[k].fields||{};
+  if(v===getP(ORIG[k],p))delete EDITS[k].fields[p];else EDITS[k].fields[p]=v;
+  if(p==="fn"){const fnEl=document.querySelector(`#n_${k} .fn`);if(fnEl)fnEl.textContent=v}
+  status("Saving…");persist(k);toast("Saved");}
+document.addEventListener("focusout",e=>{const el=e.target.closest&&e.target.closest(".ed");if(!el)return;
+  const v=el.innerText.replace(/\n$/,"");edit(el.dataset.k,el.dataset.p,v)});
+document.addEventListener("change",e=>{const el=e.target.closest(".absel");if(el)edit(el.dataset.k,el.dataset.p,el.value)});
+document.addEventListener("click",e=>{const b=e.target.closest(".rst[data-k]");if(!b)return;const k=b.dataset.k;
+  D[k]=JSON.parse(JSON.stringify(ORIG[k]));const m=(EDITS[k]||{}).model;EDITS[k]=m?{fields:{},model:m}:{fields:{}};
+  persist(k);rebuild();toast("Reset to original")});
+document.getElementById("edt").onclick=()=>{EDIT=!EDIT;document.getElementById("edt").classList.toggle("on",EDIT);
+  document.getElementById("edt").textContent=EDIT?"Done editing":"Edit";document.body.classList.toggle("editing",EDIT);rebuild();if(EDIT&&!OPENK&&tv.style.display!=="block")toast("Tap any node, then edit its spec")};
+const _setModel=setModel;setModel=function(k,v){_setModel(k,v);if(k==="__all")return;EDITS[k]=EDITS[k]||{fields:{}};EDITS[k].model=v;persist(k)};
+try{EDITS=JSON.parse(localStorage.getItem("ca_edits")||"{}")}catch(e){}
+applyAll();refresh();
+(async()=>{try{if(!window.claude||!claude.use)return;const db=await claude.use("db");if(!db)return;DBX=db;
+  const tmr=setTimeout(()=>status("Saved edits can't be reached yet"),10000);
+  const snap=await db.collection("edits").get();clearTimeout(tmr);
+  if(!snap.empty){const fresh={};snap.docs.forEach(d=>{if(d.exists)fresh[d.id]=JSON.parse(JSON.stringify(d.data()))});
+    resetAll();EDITS=fresh;applyAll();refresh();}
+  status("Edits sync to this page");}catch(e){status("Edits save in this browser only")}})();
+
+// ---------- add agents, tools, steps ----------
+const WRITE_TR=/create|update|delete|send|save|post|upload|insert|append|share|move|trash|^(Write|Edit|Bash|NotebookEdit)$/i;
+const slug=x=>String(x).toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_|_$/g,"").slice(0,24)||"new";
+const uniq=b=>{let k=b,i=2;while(D[k])k=b+"_"+(i++);return k};
+const nameTaken=n=>Object.values(D).some(v=>v&&v.name&&v.name.toLowerCase()===n.toLowerCase());
+function structural(k){EDITS[k]=EDITS[k]||{};EDITS[k].full=clone(D[k]);delete EDITS[k].fields;persist(k)}
+function saveLayout(){const extra={};Object.keys(D_EXTRA).forEach(k=>{if(!ORIG_EXTRA.has(k)&&D[k])extra[k]={icon:D_EXTRA[k].iconName||"users",returns:D_EXTRA[k].returns}});
+  const same=ORDER.length===ORIG_ORDER.length&&ORDER.every((k,i)=>k===ORIG_ORDER[i]);
+  if(same&&!Object.keys(extra).length)delete EDITS[LAYOUT];else EDITS[LAYOUT]={order:ORDER.slice(),extra};persist(LAYOUT)}
+const steplabelOf=t=>t.steps.map(st=>st[2]).join(" → ")||"No steps yet";
+const ICONS=[["users","People"],["search","Search"],["list","List"],["pen","Pen"],["eye","Review"],["check","Check"],["book","Book"],["flag","Flag"],["pkg","Package"],["msg","Message"]];
+const am=document.getElementById("addm"),mf=document.getElementById("mf");let MODE=null;
+const field=(id,lab,html,hint)=>`<label for="${id}">${lab}</label>${html}${hint?`<div class="hint2">${hint}</div>`:""}`;
+function showModal(title,html,ok,submit){document.getElementById("mt").textContent=title;mf.innerHTML=html+`<div class="err" id="merr"></div>`;document.getElementById("mok").textContent=ok;MODE=submit;am.classList.add("open");setTimeout(()=>{const f=mf.querySelector("input,select");if(f)f.focus()},30)}
+function hideModal(){am.classList.remove("open");MODE=null}
+document.getElementById("mcancel").onclick=hideModal;am.addEventListener("click",e=>{if(e.target===am)hideModal()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&am.classList.contains("open"))hideModal()});
+document.getElementById("mform").addEventListener("submit",e=>{e.preventDefault();if(!MODE)return;const v=id=>{const el=document.getElementById(id);return el?el.value.trim():""};
+  const msg=MODE(v);if(msg){document.getElementById("merr").textContent=msg;return}hideModal()});
+function addAgentForm(){
+  showModal("Add an agent",
+    field("fa_name","Name",`<input id="fa_name" placeholder="e.g. Fact Checker" maxlength="40">`)+
+    field("fa_fn","What it does",`<textarea id="fa_fn" placeholder="One sentence"></textarea>`)+
+    field("fa_ret","What it returns to the Coordinator",`<input id="fa_ret" placeholder="e.g. Verified claims list">`)+
+    field("fa_after","Runs after",`<select id="fa_after"><option value="__start">Start of the pipeline</option>${ORDER.map((k,i)=>`<option value="${k}"${i===ORDER.length-1?" selected":""}>${i+1}. ${esc(D[k].name)}</option>`).join("")}</select>`)+
+    field("fa_icon","Icon",`<select id="fa_icon">${ICONS.map(([k,l])=>`<option value="${k}">${l}</option>`).join("")}</select>`),
+    "Add agent",v=>{const name=v("fa_name");if(!name)return"Enter a name.";if(nameTaken(name))return"That name is already on the canvas.";
+      const fn=v("fa_fn")||"Describe what this agent does.",ret=v("fa_ret")||"Result for the Coordinator";
+      const k=uniq("ag_"+slug(name));
+      D[k]={type:"Agent",name,id:slug(name).toUpperCase()+"_AGENT_ID",fn,model:"sonnet",trigger:"Handoff from Coordinator",knowledge:"None",approval:"None",returns:ret,tools:[],
+        prompt:`You are the ${name}.\n\nJob: ${fn}\n\nInputs: what the Coordinator passes you.\n\nSteps:\n1. Read the inputs.\n2. Do the job.\n3. Return the output below.\n\nOutput: ${ret}\n\nNever invent facts. If information is missing, say what is missing and stop.`,
+        tests:["Normal input. Expected: "+ret+".","Missing input. Expected: names what is missing and stops.","Input with no usable facts. Expected: no invented facts."]};
+      D_EXTRA[k]={icon:ICO[v("fa_icon")]||ICO.users,iconName:v("fa_icon"),returns:ret};
+      const after=v("fa_after"),pos=after==="__start"?0:ORDER.indexOf(after)+1;ORDER.splice(pos,0,k);
+      const prev=pos>0?D[ORDER[pos-1]].name:"the request";
+      D.master.handoffs.push(["Coordinator",name,(pos>0?prev+" result received":"Every new request"),"Request + earlier results"],[name,"Coordinator",name+" done",ret]);
+      D.master.prompt+=`\n\nAdded step: after ${prev}, send the request and earlier results to ${name}. ${name}: ${fn} Wait for: ${ret}.`;
+      structural(k);structural("master");saveLayout();rebuild();toast("Agent added");setTimeout(()=>{fit();go(k)},60);});}
+function addToolForm(owner){
+  const existing=Object.keys(D).filter(k=>D[k].type==="Tool");
+  showModal("Add a tool",
+    field("ft_agent","Attach to agent",`<select id="ft_agent">${ORDER.map(k=>`<option value="${k}"${k===owner?" selected":""}>${esc(D[k].name)}</option>`).join("")}</select>`)+
+    field("ft_ex","Tool",`<select id="ft_ex"><option value="__new">New tool</option>${existing.map(k=>`<option value="${k}">Existing: ${esc(D[k].name)}</option>`).join("")}</select>`)+
+    `<div id="ft_newf">`+
+    field("ft_name","Name",`<input id="ft_name" placeholder="e.g. Claim Lookup" maxlength="40">`)+
+    field("ft_fn","What it does",`<textarea id="ft_fn" placeholder="One sentence"></textarea>`)+
+    field("ft_tr","First step",`<select id="ft_tr">${trOpts("js_code_transformation")}</select>`,"You can add more steps from the tool's spec.")+`</div>`+
+    field("ft_use","Use when",`<input id="ft_use" placeholder="When the agent should call it">`)+
+    field("ft_beh","action_behaviour",`<select id="ft_beh"><option>never-ask</option><option>ask-first</option><option>always-ask</option></select>`,"Tools that save, send, or change data must ask first."),
+    "Add tool",v=>{const ag=v("ft_agent");if(!ag)return"Add an agent first.";let tk=v("ft_ex"),beh=v("ft_beh");
+      if(tk==="__new"){const name=v("ft_name");if(!name)return"Enter a name.";if(nameTaken(name))return"That name is already on the canvas.";
+        const tr=v("ft_tr");tk=uniq("tl_"+slug(name));
+        D[tk]={type:"Tool",cls:"tl",name,id:slug(name).toUpperCase()+"_TOOL_ID",fn:v("ft_fn")||"Describe what this tool does.",steplabel:tr,
+          inputs:[["input","string","required","What the agent passes in"]],steps:[["1","step_1",tr,tr==="js_code_transformation"?"return { result: params.input };":(CC_PARAMS[tr]||"Set params here. Use {{params.input}}")]],
+          schema:`{ "result": "string" }`,output:`{ "result": "{{steps.step_1.output${tr.endsWith("code_transformation")?".transformed.result":""}}}" }`,
+          tests:["Normal input. Expected: result returned.","Empty input. Expected: a clear failure status, no invented data."]};
+        if(WRITE_TR.test(tr)&&beh==="never-ask"){beh="always-ask";toast("Set to always-ask: this tool writes data")}
+        if(beh!=="never-ask")D[tk].approval=beh+" on the agent";structural(tk);}
+      else{if(D[ag].tools.some(t=>t[0]===D[tk].name))return"That agent already has this tool.";
+        if(beh==="never-ask"&&D[tk].steps.some(st=>WRITE_TR.test(st[2])&&!/code_transformation/.test(st[2]))){beh="always-ask";toast("Set to always-ask: this tool writes data")}}
+      D[ag].tools.push([D[tk].name,v("ft_use")||"When needed",beh]);
+      if(beh!=="never-ask"&&(!D[ag].approval||D[ag].approval==="None"))D[ag].approval=D[tk].name+" asks first";
+      structural(ag);rebuild();toast("Tool added");setTimeout(()=>go(tk,ag),60);});
+  const ex=document.getElementById("ft_ex"),nf=document.getElementById("ft_newf");ex.onchange=()=>nf.style.display=ex.value==="__new"?"":"none";}
+function addClick(kind,owner){if(kind==="agent")addAgentForm();else if(kind==="tool")addToolForm(owner)}
+document.getElementById("addA").onclick=addAgentForm;
+document.getElementById("addT").onclick=()=>addToolForm(OPENK&&D[OPENK]&&D[OPENK].type==="Agent"?OPENK:OPENO||ORDER[ORDER.length-1]);
+document.addEventListener("click",e=>{
+  const a=e.target.closest(".addrow");
+  if(a){const k=a.dataset.k,c=D[k];
+    if(a.dataset.row==="tool")return addToolForm(k);
+    if(a.dataset.row==="step"){const n=c.steps.length+1;c.steps.push([String(n),"step_"+n,"js_code_transformation","return {};"]);c.steplabel=steplabelOf(c)}
+    if(a.dataset.row==="input")c.inputs.push(["new_input","string","optional","Describe this input"]);
+    if(a.dataset.row==="test")c.tests.push("New test. Expected: describe the exact result.");
+    structural(k);rebuild();toast("Row added");
+    setTimeout(()=>{const eds=document.querySelectorAll(`#dbb .ed[data-k="${k}"]`);const last=[...eds].filter(x=>x.dataset.p.startsWith(a.dataset.row==="step"?"steps.":a.dataset.row==="input"?"inputs.":"tests.")).slice(a.dataset.row==="test"?-1:-3)[0];if(last){last.focus();last.scrollIntoView({block:"center"})}},40);return}
+  const rm=e.target.closest(".rmrow");
+  if(rm){const k=rm.dataset.k,arr=rm.dataset.arr,i=+rm.dataset.i;const c=D[k];
+    if(arr==="tools"){const tn=c.tools[i][0];c.tools.splice(i,1);toast("Detached "+tn)}else{c[arr].splice(i,1);toast("Removed")}
+    if(arr==="steps"){c.steps.forEach((st,j)=>st[0]=String(j+1));c.steplabel=steplabelOf(c)}
+    structural(k);rebuild();return}
+  const del=e.target.closest("[data-del]");
+  if(del){const k=del.dataset.del,c=D[k];if(!c||ORIG[k])return;
+    if(c.type==="Agent"){ORDER=ORDER.filter(x=>x!==k);D.master.handoffs=D.master.handoffs.filter(r=>r[0]!==c.name&&r[1]!==c.name);structural("master");delete D_EXTRA[k];}
+    if(c.type==="Tool"){ORDER.forEach(a=>{const n0=D[a].tools.length;D[a].tools=D[a].tools.filter(t=>t[0]!==c.name);if(D[a].tools.length!==n0)structural(a)})}
+    delete D[k];delete EDITS[k];persist(k);saveLayout();closeDr();rebuild();toast("Deleted "+c.name)}
+});
+document.addEventListener("change",e=>{const t=e.target.closest(".trsel");if(!t)return;const c=D[t.dataset.k];if(c&&c.steps){c.steplabel=steplabelOf(c);structural(t.dataset.k);rebuild()}});
+</script>
+</body>
+</html>
