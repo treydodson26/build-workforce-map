@@ -1,0 +1,10 @@
+{
+ "t_rollup": "tool_0352384a8d",
+ "t_template": "tool_2584904b20",
+ "reader": "agent_249282ea01",
+ "analyst": "agent_8d47d966f2",
+ "drafter": "agent_0dc1ae69c9",
+ "reviewer": "agent_302d08d5ea",
+ "delivery": "agent_b6f6e571b5",
+ "master": "wf_3932fc54d6"
+}

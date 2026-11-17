@@ -1,0 +1,630 @@
+{
+ "trigger": {
+  "type": "Trigger",
+  "name": "Friday 3 PM schedule",
+  "id": "WEEKLY_STATUS_SCHEDULE_TRIGGER_ID",
+  "fn": "Starts one run every Friday at 3:00 PM America/New_York, or on demand from chat.",
+  "kind": "schedule",
+  "inputs": [
+   [
+    "tracker_path",
+    "string",
+    "required",
+    "Workbook path under WORKFORCE_WINDOWS_ROOT. Default trackers\\project-tracker.xlsx"
+   ],
+   [
+    "week_ending",
+    "string",
+    "optional",
+    "YYYY-MM-DD. Default the Friday of the run"
+   ],
+   [
+    "manager_email",
+    "string",
+    "required",
+    "Address for the review draft. No default; asked once if missing"
+   ],
+   [
+    "reports_folder",
+    "string",
+    "optional",
+    "Folder under the root. Default reports"
+   ]
+  ],
+  "tests": [
+   [
+    "Scheduled run with all inputs set",
+    "exactly 1 workforce task is created and its first handoff goes to Tracker Reader",
+    "happy"
+   ],
+   [
+    "Run with manager_email empty",
+    "reply contains STATUS: NEEDS_INPUT and names manager_email",
+    "missing"
+   ],
+   [
+    "Run with tracker_path that does not exist",
+    "reply contains FAILED and the exact path; no .docx is created",
+    "failure"
+   ]
+  ]
+ },
+ "master": {
+  "type": "Workforce",
+  "name": "Weekly Status Coordinator",
+  "id": "WEEKLY_STATUS_WORKFORCE_ID",
+  "fn": "Turns the task tracker into a reviewed weekly status report and a review-only email draft.",
+  "model": "sonnet",
+  "trigger": "Friday 3 PM schedule",
+  "prompt": "You are the Weekly Status Coordinator. You never write report content yourself.\nInputs: tracker_path, week_ending, manager_email, reports_folder.\nIf tracker_path or manager_email is missing, reply STATUS: NEEDS_INPUT and name each missing field. Ask once.\nRoute in this order:\n1. Tracker Reader: send tracker_path. Receive rows and the workstream rollup.\n2. Status Analyst: send the rows and rollup. Receive progress, risks, and RAG status per workstream.\n3. Report Writer: send the analysis and week_ending. Receive the report text and the saved .docx path.\n4. Report Reviewer: send the report text and the analysis. Receive PASS or REVISE with numbered issues.\n   If REVISE, send the issues back to Report Writer. Maximum 2 rounds. After 2 REVISE rounds, stop with STATUS: UNRESOLVED.\n5. Delivery Agent: send the .docx path, the one-paragraph summary, and manager_email. Receive the draft entry_id.\nIf any agent returns FAILED or an error, stop, report FAILED with the agent name and its error, and save nothing further.\nThe Delivery Agent's draft waits for human approval; nothing is ever sent.\nFinal reply: one line per step with its status, the link to the saved .docx, and the Outlook draft entry_id.",
+  "handoffs": [
+   [
+    "Coordinator",
+    "Tracker Reader",
+    "Every run with inputs complete",
+    "tracker_path"
+   ],
+   [
+    "Tracker Reader",
+    "Coordinator",
+    "Rows read, or FAILED",
+    "rows, rollup by workstream, row count"
+   ],
+   [
+    "Coordinator",
+    "Status Analyst",
+    "Rows received",
+    "rows + rollup + week_ending"
+   ],
+   [
+    "Status Analyst",
+    "Coordinator",
+    "Analysis complete",
+    "per-workstream progress, risks, RAG"
+   ],
+   [
+    "Coordinator",
+    "Report Writer",
+    "Analysis received, or verdict REVISE",
+    "analysis + week_ending + reports_folder (+ issues)"
+   ],
+   [
+    "Report Writer",
+    "Coordinator",
+    "Report saved",
+    "report text + docx path"
+   ],
+   [
+    "Coordinator",
+    "Report Reviewer",
+    "Report received",
+    "report text + analysis"
+   ],
+   [
+    "Report Reviewer",
+    "Coordinator",
+    "Verdict ready",
+    "PASS or REVISE + numbered issues"
+   ],
+   [
+    "Coordinator",
+    "Delivery Agent",
+    "Verdict PASS",
+    "docx path + summary + manager_email"
+   ],
+   [
+    "Delivery Agent",
+    "Coordinator",
+    "Draft created, or FAILED",
+    "entry_id + subject"
+   ]
+  ],
+  "tests": [
+   [
+    "Tracker with 3 workstreams and 24 tasks, manager_email set",
+    "every handoff runs once; exactly 1 .docx in reports; exactly 1 Outlook draft; 0 emails sent",
+    "e2e"
+   ],
+   [
+    "Report Writer output missing the Risks section",
+    "Reviewer returns REVISE once, the second draft passes, round count = 2",
+    "loop"
+   ],
+   [
+    "tracker_path points to a missing file",
+    "reply contains FAILED and Tracker Reader; 0 .docx files and 0 drafts created",
+    "failure"
+   ],
+   [
+    "manager_email empty",
+    "reply contains STATUS: NEEDS_INPUT",
+    "missing"
+   ]
+  ]
+ },
+ "reader": {
+  "type": "Agent",
+  "name": "Tracker Reader",
+  "id": "TRACKER_READER_AGENT_ID",
+  "fn": "Reads the task tracker workbook and returns clean rows plus counts by workstream.",
+  "model": "haiku",
+  "model_reason": "Extraction and counting only; no judgement.",
+  "trigger": "Handoff from Coordinator",
+  "knowledge": "None",
+  "approval": "None",
+  "autonomy_limit": 6,
+  "autonomy_limit_behaviour": "terminate-conversation",
+  "returns": "Rows + rollup by workstream",
+  "tools": [
+   [
+    "Read Task Tracker",
+    "Use first, once, with tracker_path",
+    "never-ask"
+   ],
+   [
+    "Workstream Rollup",
+    "Use after reading, on the rows it returned",
+    "never-ask"
+   ]
+  ],
+  "prompt": "You are Tracker Reader. Input: tracker_path.\nSteps: 1. Call Read Task Tracker with tracker_path. 2. Call Workstream Rollup on the rows.\nOutput JSON: { \"rows\": [...], \"rollup\": {...}, \"row_count\": n }.\nIf the file is missing or has no header row, return FAILED with the path. Never invent a row or a value.",
+  "tests": [
+   [
+    "Tracker with 24 rows in 3 workstreams",
+    "row_count = 24 and rollup has exactly 3 keys",
+    "happy"
+   ],
+   [
+    "Tracker path that does not exist",
+    "returns FAILED and the exact path",
+    "missing"
+   ],
+   [
+    "Tracker with a blank Owner cell",
+    "that row keeps owner = null; nothing is filled in",
+    "failure"
+   ]
+  ]
+ },
+ "analyst": {
+  "type": "Agent",
+  "name": "Status Analyst",
+  "id": "STATUS_ANALYST_AGENT_ID",
+  "fn": "Judges progress, risks, and RAG status per workstream from the rows and the RAG rules.",
+  "model": "sonnet",
+  "model_reason": "Judgement over many rows with written rationale.",
+  "trigger": "Handoff from Coordinator",
+  "knowledge": "kb:rag-rules",
+  "approval": "None",
+  "autonomy_limit": 8,
+  "autonomy_limit_behaviour": "terminate-conversation",
+  "returns": "Progress, risks, RAG per workstream",
+  "tools": [
+   [
+    "Report Template Lookup",
+    "Use first to load the RAG rules and section template",
+    "never-ask"
+   ]
+  ],
+  "prompt": "You are Status Analyst. Input: rows and rollup.\nSteps: 1. Call Report Template Lookup with query \"RAG rules\". 2. For each workstream apply only those rules.\nOutput, per workstream: name, done/total, overdue count, RAG (Red, Amber, Green) with the rule that set it, top 3 risks each citing task IDs.\nUse only facts from the rows. If a workstream has no tasks, say \"No tasks found\" instead of guessing.",
+  "tests": [
+   [
+    "Workstream with 2 overdue critical tasks",
+    "RAG = Red and the cited rule names overdue critical tasks",
+    "happy"
+   ],
+   [
+    "Rollup with an empty workstream",
+    "that workstream text contains exactly \"No tasks found\"",
+    "missing"
+   ],
+   [
+    "Rows where every task is done",
+    "every RAG = Green and risks list is empty",
+    "happy"
+   ]
+  ]
+ },
+ "drafter": {
+  "type": "Agent",
+  "name": "Report Writer",
+  "id": "REPORT_WRITER_AGENT_ID",
+  "fn": "Writes the weekly status report and saves it as a Word document; revises from reviewer issues.",
+  "model": "sonnet",
+  "model_reason": "Drafting quality prose for a manager audience.",
+  "trigger": "Handoff from Coordinator",
+  "knowledge": "kb:rag-rules",
+  "approval": "Write Report Document is ask-first",
+  "autonomy_limit": 8,
+  "autonomy_limit_behaviour": "ask-for-approval",
+  "returns": "Report text + .docx path",
+  "tools": [
+   [
+    "Report Template Lookup",
+    "Use first to load the section template",
+    "never-ask"
+   ],
+   [
+    "Write Report Document",
+    "Use last, once per round, to save the .docx",
+    "ask-first"
+   ]
+  ],
+  "prompt": "You are Report Writer. Input: analysis, week_ending, reports_folder, and on revision the reviewer's issues.\nSteps: 1. Call Report Template Lookup with query \"status report sections\". 2. Write the report in this order: Summary (one paragraph), Workstream status table, Risks and mitigations, Next week, Decisions needed. 3. Call Write Report Document with path <reports_folder>\\Weekly-Status_<week_ending>.docx.\nOutput: report text and the saved path. On revision, fix every numbered issue and list each under \"Revision notes\".\nNever invent a number, owner, or date that is not in the analysis.",
+  "tests": [
+   [
+    "Analysis for 3 workstreams",
+    "report has the 5 sections in order and the table has exactly 3 rows",
+    "happy"
+   ],
+   [
+    "Revision input with 2 issues",
+    "exactly 2 revision notes, one per issue",
+    "happy"
+   ],
+   [
+    "Analysis missing week_ending",
+    "returns STATUS: NEEDS_INPUT naming week_ending; no .docx saved",
+    "missing"
+   ]
+  ]
+ },
+ "reviewer": {
+  "type": "Agent",
+  "name": "Report Reviewer",
+  "id": "REPORT_REVIEWER_AGENT_ID",
+  "fn": "Checks the report against the analysis and the template. Returns PASS or REVISE.",
+  "model": "sonnet",
+  "model_reason": "Careful comparison of numbers and claims.",
+  "trigger": "Handoff from Coordinator",
+  "knowledge": "kb:rag-rules",
+  "approval": "None",
+  "autonomy_limit": 6,
+  "autonomy_limit_behaviour": "terminate-conversation",
+  "returns": "PASS or REVISE + issues",
+  "tools": [
+   [
+    "Report Template Lookup",
+    "Use to confirm the required sections",
+    "never-ask"
+   ]
+  ],
+  "prompt": "You are Report Reviewer. Input: report text and analysis.\nMatch every number, RAG value, and task ID in the report to the analysis. Call Report Template Lookup to confirm all 5 template sections exist in order.\nOutput: Verdict: PASS or REVISE, then numbered issues (location, problem, exact fix).\nPASS only with zero number mismatches and zero missing sections. Never add content yourself.",
+  "tests": [
+   [
+    "Report with one wrong done/total count",
+    "verdict = REVISE and the issue names that workstream",
+    "happy"
+   ],
+   [
+    "Report missing the Risks section",
+    "verdict = REVISE",
+    "missing"
+   ],
+   [
+    "Clean report",
+    "verdict = PASS with 0 issues",
+    "happy"
+   ]
+  ]
+ },
+ "delivery": {
+  "type": "Agent",
+  "name": "Delivery Agent",
+  "id": "DELIVERY_AGENT_ID",
+  "fn": "Creates the review-only Outlook draft to the manager. Never sends.",
+  "model": "haiku",
+  "model_reason": "Fixed-format draft creation.",
+  "trigger": "Handoff from Coordinator",
+  "knowledge": "None",
+  "approval": "Create Review Email Draft is always-ask",
+  "autonomy_limit": 4,
+  "autonomy_limit_behaviour": "ask-for-approval",
+  "returns": "Outlook draft entry_id",
+  "tools": [
+   [
+    "Create Review Email Draft",
+    "Use once, after Reviewer PASS",
+    "always-ask"
+   ]
+  ],
+  "prompt": "You are Delivery Agent. Input: docx path, summary, manager_email.\nCall Create Review Email Draft with subject \"Weekly status: week ending <date>\", the summary as body, and the docx path as a line in the body.\nOutput: entry_id and subject. Never call any send tool. If manager_email is missing, return STATUS: NEEDS_INPUT.",
+  "tests": [
+   [
+    "PASS report with manager_email set",
+    "exactly 1 draft and 0 sent items",
+    "happy"
+   ],
+   [
+    "manager_email empty",
+    "returns STATUS: NEEDS_INPUT",
+    "missing"
+   ],
+   [
+    "Outlook unavailable (OUTLOOK_UNAVAILABLE)",
+    "returns FAILED with that error code",
+    "failure"
+   ]
+  ]
+ },
+ "output": {
+  "type": "Output",
+  "name": "Deliverable package",
+  "id": "reports\\Weekly-Status_YYYY-MM-DD.docx",
+  "fn": "One Word report in the reports folder, one unsent Outlook draft, and a status reply in chat.",
+  "tree": "WORKFORCE_WINDOWS_ROOT\\\n├─ trackers\\project-tracker.xlsx  (input)\n└─ reports\\\n   └─ Weekly-Status_2026-11-20.docx  Word\n       ├─ Summary\n       ├─ Workstream status table\n       ├─ Risks and mitigations\n       ├─ Next week\n       └─ Decisions needed\nOutlook Drafts (unsent):\n  Weekly status: week ending 2026-11-20",
+  "deliverables": [
+   [
+    "Weekly status report",
+    "reports folder",
+    "Weekly-Status_<week_ending>.docx",
+    "drafter",
+    "5 sections in order; table row per workstream; every number matches the tracker",
+    "Report Reviewer PASS"
+   ],
+   [
+    "Review email draft",
+    "Outlook Drafts",
+    "Weekly status: week ending <week_ending>",
+    "delivery",
+    "Unsent; body holds the summary and the .docx path",
+    "Delivery Agent tests"
+   ],
+   [
+    "Chat reply",
+    "Workforce task",
+    "n/a (chat)",
+    "master",
+    "One status line per step, .docx link, draft entry_id",
+    "End-to-end test"
+   ]
+  ],
+  "tests": [
+   [
+    "End-to-end run",
+    "exactly 1 .docx and exactly 1 unsent draft",
+    "happy"
+   ],
+   [
+    "Run that fails at Tracker Reader",
+    "0 .docx files and 0 drafts",
+    "failure"
+   ]
+  ]
+ },
+ "t_readtracker": {
+  "type": "Tool",
+  "name": "Read Task Tracker",
+  "id": "READ_TASK_TRACKER_TOOL_ID",
+  "fn": "Reads the tracker worksheet as rows (Excel COM).",
+  "searched": "list_tools and search_public_tools had no Excel reader; the server's com family has excel_read_range.",
+  "steplabel": "excel_read_range",
+  "inputs": [
+   [
+    "tracker_path",
+    "string",
+    "required",
+    "Workbook path under the workspace root"
+   ]
+  ],
+  "steps": [
+   [
+    "1",
+    "read",
+    "mcp__workforce__excel_read_range",
+    "path: {{params.tracker_path}} · worksheet: Tasks"
+   ]
+  ],
+  "schema": "{ values: array<array>, range: string }",
+  "output": "{ \"values\": \"{{steps.read.output.values}}\" }",
+  "tests": [
+   [
+    "{\"tracker_path\":\"trackers\\\\project-tracker.xlsx\"}",
+    "values has 25 rows including the header",
+    "happy"
+   ],
+   [
+    "{\"tracker_path\":\"missing.xlsx\"}",
+    "error NOT_FOUND",
+    "failure"
+   ]
+  ]
+ },
+ "t_rollup": {
+  "type": "Tool",
+  "name": "Workstream Rollup",
+  "id": "WORKSTREAM_ROLLUP_TOOL_ID",
+  "fn": "Turns header + rows into objects and counts done, open, and overdue per workstream.",
+  "searched": "No existing rollup tool; a code step is deterministic.",
+  "steplabel": "js_code_transformation",
+  "inputs": [
+   [
+    "values",
+    "array",
+    "required",
+    "Rows from Read Task Tracker, header first"
+   ],
+   [
+    "as_of",
+    "string",
+    "required",
+    "YYYY-MM-DD used for overdue"
+   ]
+  ],
+  "steps": [
+   [
+    "1",
+    "rollup",
+    "js_code_transformation",
+    "code: const [h,...r]=params.values; const rows=r.map(x=>Object.fromEntries(h.map((k,i)=>[k,x[i]??null]))); const by={}; for(const t of rows){const w=t.Workstream||'(none)'; const b=(by[w]??={total:0,done:0,overdue:0}); b.total++; if(String(t.Status).toLowerCase()==='done') b.done++; else if(t.Due && String(t.Due)<params.as_of) b.overdue++;} return {rows, rollup:by, row_count: rows.length};"
+   ]
+  ],
+  "schema": "{ rows: array, rollup: object, row_count: number }",
+  "output": "{ \"rows\": \"{{steps.rollup.output.transformed.rows}}\", \"rollup\": \"{{steps.rollup.output.transformed.rollup}}\", \"row_count\": \"{{steps.rollup.output.transformed.row_count}}\" }",
+  "tests": [
+   [
+    "3 rows: 2 in A (1 done), 1 in B overdue",
+    "rollup.A = {total:2,done:1,overdue:0} and rollup.B.overdue = 1",
+    "happy"
+   ]
+  ]
+ },
+ "t_template": {
+  "type": "Tool",
+  "name": "Report Template Lookup",
+  "id": "REPORT_TEMPLATE_LOOKUP_TOOL_ID",
+  "fn": "Searches the RAG rules and report template knowledge table.",
+  "searched": "No existing lookup; knowledge search step.",
+  "steplabel": "claude_db_search",
+  "inputs": [
+   [
+    "query",
+    "string",
+    "required",
+    "What to look up, e.g. RAG rules"
+   ]
+  ],
+  "steps": [
+   [
+    "1",
+    "kb",
+    "claude_db_search",
+    "store: status_templates · base: rag-rules · query: {{params.query}} · top_k: 3 · filters: status == active"
+   ]
+  ],
+  "schema": "{ results: array<{ score, row }> , matched: boolean }",
+  "output": "{ \"results\": \"{{steps.kb.output.results}}\" }",
+  "tests": [
+   [
+    "{\"query\":\"RAG rules\"}",
+    "top result _id = rag-rules-1",
+    "happy"
+   ],
+   [
+    "{\"query\":\"zebra migration\"}",
+    "results = [] (matched: false)",
+    "missing"
+   ]
+  ]
+ },
+ "t_writedoc": {
+  "type": "Tool",
+  "name": "Write Report Document",
+  "id": "WRITE_REPORT_DOCUMENT_TOOL_ID",
+  "fn": "Saves the report text as a .docx (Word COM). Safe to retry with overwrite.",
+  "searched": "The server's com family has word_create_document.",
+  "steplabel": "word_create_document",
+  "inputs": [
+   [
+    "path",
+    "string",
+    "required",
+    "Path under the root, e.g. reports\\Weekly-Status_2026-11-20.docx"
+   ],
+   [
+    "text",
+    "string",
+    "required",
+    "Full report text"
+   ]
+  ],
+  "steps": [
+   [
+    "1",
+    "save",
+    "mcp__workforce__word_create_document",
+    "path: {{params.path}} · text: {{params.text}} · overwrite: true"
+   ]
+  ],
+  "schema": "{ path: string, created: boolean }",
+  "output": "{ \"path\": \"{{steps.save.output.path}}\", \"created\": \"{{steps.save.output.created}}\" }",
+  "tests": [
+   [
+    "{\"path\":\"reports\\\\qa.docx\",\"text\":\"QA\"}",
+    "created = true and path ends with qa.docx",
+    "happy"
+   ]
+  ]
+ },
+ "t_draftemail": {
+  "type": "Tool",
+  "name": "Create Review Email Draft",
+  "id": "CREATE_REVIEW_EMAIL_DRAFT_TOOL_ID",
+  "fn": "Saves an unsent Outlook draft (classic Outlook COM).",
+  "searched": "The server's com family has outlook_create_draft; outlook_send is never attached.",
+  "steplabel": "outlook_create_draft",
+  "inputs": [
+   [
+    "to",
+    "string",
+    "required",
+    "Manager address"
+   ],
+   [
+    "subject",
+    "string",
+    "required",
+    "Subject line"
+   ],
+   [
+    "body",
+    "string",
+    "required",
+    "Summary and .docx path"
+   ]
+  ],
+  "steps": [
+   [
+    "1",
+    "draft",
+    "mcp__workforce__outlook_create_draft",
+    "to: {{params.to}} · subject: {{params.subject}} · body: {{params.body}}"
+   ]
+  ],
+  "schema": "{ entry_id: string, saved: boolean }",
+  "output": "{ \"entry_id\": \"{{steps.draft.output.entry_id}}\" }",
+  "tests": [
+   [
+    "{\"to\":\"me@example.com\",\"subject\":\"QA\",\"body\":\"QA\"}",
+    "saved = true and 0 sent items",
+    "happy"
+   ]
+  ]
+ },
+ "order": [
+  "reader",
+  "analyst",
+  "drafter",
+  "reviewer",
+  "delivery"
+ ],
+ "prereqs": [
+  [
+   "Folder",
+   "Workspace root",
+   "WORKFORCE_WINDOWS_ROOT",
+   "trackers\\ and reports\\ folders"
+  ],
+  [
+   "Knowledge",
+   "RAG rules and report template",
+   "rag-rules",
+   "Knowledge table status_templates, base rag-rules"
+  ],
+  [
+   "Host",
+   "Windows + desktop Word + Excel + classic Outlook",
+   "COM_HOST",
+   "Checked by com_host_check"
+  ],
+  [
+   "Schedule",
+   "Friday 3 PM fire command",
+   "WEEKLY_STATUS_SCHEDULE_TRIGGER_ID",
+   "Windows Task Scheduler or a Claude Code scheduled task"
+  ]
+ ],
+ "unverified": [
+  "Outlook draft attachments: outlook_create_draft has no attachment parameter, so the .docx path goes in the body"
+ ]
+}

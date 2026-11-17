@@ -1,0 +1,1178 @@
+[
+ {
+  "tool": "mcp__workforce__create_knowledge_set",
+  "args": {
+   "name": "status_templates",
+   "description": "RAG rules and weekly report template (base rag-rules)"
+  },
+  "ok": true,
+  "result": {
+   "id": "status_templates",
+   "name": "status_templates",
+   "description": "RAG rules and weekly report template (base rag-rules)",
+   "columns": [],
+   "created_at": "2026-11-17T19:37:53.911Z"
+  }
+ },
+ {
+  "tool": "mcp__workforce__run_transformation",
+  "args": {
+   "transformation_id": "claude_db_upsert",
+   "params": {
+    "store": "status_templates",
+    "rows": [
+     {
+      "_id": "rag-rules-1",
+      "base": "rag-rules",
+      "status": "active",
+      "text": "RAG rules: Red when any critical task is overdue or more than 20 percent of open tasks are overdue. Amber when any task is overdue. Green when no task is overdue."
+     },
+     {
+      "_id": "template-1",
+      "base": "rag-rules",
+      "status": "active",
+      "text": "Status report sections, in order: Summary, Workstream status table, Risks and mitigations, Next week, Decisions needed."
+     },
+     {
+      "_id": "rag-rules-0",
+      "base": "rag-rules",
+      "status": "stale",
+      "text": "Old RAG rules: Red only when the project is late."
+     }
+    ]
+   }
+  },
+  "ok": true,
+  "result": {
+   "upserted": 3
+  }
+ },
+ {
+  "tool": "mcp__workforce__run_transformation",
+  "args": {
+   "transformation_id": "claude_db_search",
+   "params": {
+    "store": "status_templates",
+    "query": "RAG rules overdue critical"
+   }
+  },
+  "ok": true,
+  "result": {
+   "results": [
+    {
+     "score": 2.2247,
+     "row": {
+      "status": "active",
+      "_id": "rag-rules-1",
+      "base": "rag-rules",
+      "text": "RAG rules: Red when any critical task is overdue or more than 20 percent of open tasks are overdue. Amber when any task is overdue. Green when no task is overdue."
+     }
+    },
+    {
+     "score": 0.4052,
+     "row": {
+      "status": "active",
+      "_id": "template-1",
+      "base": "rag-rules",
+      "text": "Status report sections, in order: Summary, Workstream status table, Risks and mitigations, Next week, Decisions needed."
+     }
+    }
+   ],
+   "duration_ms": 1
+  }
+ },
+ {
+  "tool": "mcp__workforce__run_transformation",
+  "args": {
+   "transformation_id": "claude_db_search",
+   "params": {
+    "store": "status_templates",
+    "query": "zebra migration"
+   }
+  },
+  "ok": true,
+  "result": {
+   "results": [],
+   "duration_ms": 1
+  }
+ },
+ {
+  "tool": "mcp__workforce__create_tool",
+  "args": {
+   "name": "Workstream Rollup",
+   "description": "Turns header + rows into objects and counts done, open, and overdue per workstream.",
+   "inputs": [
+    {
+     "name": "values",
+     "type": "array",
+     "required": true,
+     "description": "Rows from Read Task Tracker, header first"
+    },
+    {
+     "name": "as_of",
+     "type": "string",
+     "required": true,
+     "description": "YYYY-MM-DD used for overdue"
+    }
+   ],
+   "steps": [
+    {
+     "name": "rollup",
+     "transformation": "js_code_transformation",
+     "params": {
+      "code": "const [h,...r]=params.values; const rows=r.map(x=>Object.fromEntries(h.map((k,i)=>[k,x[i]??null]))); const by={}; for(const t of rows){const w=t.Workstream||'(none)'; const b=(by[w]??={total:0,done:0,overdue:0}); b.total++; if(String(t.Status).toLowerCase()==='done') b.done++; else if(t.Due && String(t.Due)<params.as_of) b.overdue++;} return {rows, rollup:by, row_count: rows.length};"
+     }
+    }
+   ],
+   "output": {
+    "rows": "{{rollup.transformed.rows}}",
+    "rollup": "{{rollup.transformed.rollup}}",
+    "row_count": "{{rollup.transformed.row_count}}"
+   }
+  },
+  "ok": true,
+  "result": {
+   "id": "tool_0352384a8d",
+   "name": "Workstream Rollup",
+   "description": "Turns header + rows into objects and counts done, open, and overdue per workstream.",
+   "inputs": [
+    {
+     "name": "values",
+     "type": "array",
+     "required": true,
+     "description": "Rows from Read Task Tracker, header first"
+    },
+    {
+     "name": "as_of",
+     "type": "string",
+     "required": true,
+     "description": "YYYY-MM-DD used for overdue"
+    }
+   ],
+   "steps": [
+    {
+     "name": "rollup",
+     "transformation": "js_code_transformation",
+     "params": {
+      "code": "const [h,...r]=params.values; const rows=r.map(x=>Object.fromEntries(h.map((k,i)=>[k,x[i]??null]))); const by={}; for(const t of rows){const w=t.Workstream||'(none)'; const b=(by[w]??={total:0,done:0,overdue:0}); b.total++; if(String(t.Status).toLowerCase()==='done') b.done++; else if(t.Due && String(t.Due)<params.as_of) b.overdue++;} return {rows, rollup:by, row_count: rows.length};"
+     }
+    }
+   ],
+   "output": {
+    "rows": "{{rollup.transformed.rows}}",
+    "rollup": "{{rollup.transformed.rollup}}",
+    "row_count": "{{rollup.transformed.row_count}}"
+   },
+   "folder_id": null,
+   "created_at": "2026-11-17T19:37:53.931Z",
+   "updated_at": "2026-11-17T19:37:53.931Z"
+  }
+ },
+ {
+  "tool": "mcp__workforce__run_tool",
+  "args": {
+   "tool_id": "tool_0352384a8d",
+   "params": {
+    "as_of": "2026-11-20",
+    "values": [
+     [
+      "ID",
+      "Workstream",
+      "Status",
+      "Due"
+     ],
+     [
+      "T1",
+      "A",
+      "Done",
+      "2026-11-10"
+     ],
+     [
+      "T2",
+      "A",
+      "Open",
+      "2026-12-01"
+     ],
+     [
+      "T3",
+      "B",
+      "Open",
+      "2026-11-12"
+     ]
+    ]
+   }
+  },
+  "ok": true,
+  "result": {
+   "run_id": "run_4ec3fe9592",
+   "status": "complete",
+   "output": {
+    "rows": [
+     {
+      "ID": "T1",
+      "Workstream": "A",
+      "Status": "Done",
+      "Due": "2026-11-10"
+     },
+     {
+      "ID": "T2",
+      "Workstream": "A",
+      "Status": "Open",
+      "Due": "2026-12-01"
+     },
+     {
+      "ID": "T3",
+      "Workstream": "B",
+      "Status": "Open",
+      "Due": "2026-11-12"
+     }
+    ],
+    "rollup": {
+     "A": {
+      "total": 2,
+      "done": 1,
+      "overdue": 0
+     },
+     "B": {
+      "total": 1,
+      "done": 0,
+      "overdue": 1
+     }
+    },
+    "row_count": 3
+   }
+  }
+ },
+ {
+  "tool": "mcp__workforce__create_tool",
+  "args": {
+   "name": "Report Template Lookup",
+   "description": "Searches the RAG rules and report template knowledge table.",
+   "inputs": [
+    {
+     "name": "query",
+     "type": "string",
+     "required": true
+    }
+   ],
+   "steps": [
+    {
+     "name": "kb",
+     "transformation": "claude_db_search",
+     "params": {
+      "store": "status_templates",
+      "query": "{{params.query}}",
+      "top_k": 3,
+      "filters": {
+       "status": "active",
+       "base": "rag-rules"
+      }
+     }
+    }
+   ],
+   "output": {
+    "results": "{{kb.results}}"
+   }
+  },
+  "ok": true,
+  "result": {
+   "id": "tool_2584904b20",
+   "name": "Report Template Lookup",
+   "description": "Searches the RAG rules and report template knowledge table.",
+   "inputs": [
+    {
+     "name": "query",
+     "type": "string",
+     "required": true
+    }
+   ],
+   "steps": [
+    {
+     "name": "kb",
+     "transformation": "claude_db_search",
+     "params": {
+      "store": "status_templates",
+      "query": "{{params.query}}",
+      "top_k": 3,
+      "filters": {
+       "status": "active",
+       "base": "rag-rules"
+      }
+     }
+    }
+   ],
+   "output": {
+    "results": "{{kb.results}}"
+   },
+   "folder_id": null,
+   "created_at": "2026-11-17T19:37:53.937Z",
+   "updated_at": "2026-11-17T19:37:53.937Z"
+  }
+ },
+ {
+  "tool": "mcp__workforce__run_tool",
+  "args": {
+   "tool_id": "tool_2584904b20",
+   "params": {
+    "query": "RAG rules"
+   }
+  },
+  "ok": true,
+  "result": {
+   "run_id": "run_c5f4f300c7",
+   "status": "complete",
+   "output": {
+    "results": [
+     {
+      "score": 0.4691,
+      "row": {
+       "status": "active",
+       "_id": "rag-rules-1",
+       "base": "rag-rules",
+       "text": "RAG rules: Red when any critical task is overdue or more than 20 percent of open tasks are overdue. Amber when any task is overdue. Green when no task is overdue."
+      }
+     },
+     {
+      "score": 0.4052,
+      "row": {
+       "status": "active",
+       "_id": "template-1",
+       "base": "rag-rules",
+       "text": "Status report sections, in order: Summary, Workstream status table, Risks and mitigations, Next week, Decisions needed."
+      }
+     }
+    ]
+   }
+  }
+ },
+ {
+  "tool": "mcp__workforce__publish_tool",
+  "args": {
+   "tool_id": "tool_0352384a8d",
+   "note": "Stage 3 build"
+  },
+  "ok": true,
+  "result": {
+   "tool_id": "tool_0352384a8d",
+   "version": 1
+  }
+ },
+ {
+  "tool": "mcp__workforce__publish_tool",
+  "args": {
+   "tool_id": "tool_2584904b20",
+   "note": "Stage 3 build"
+  },
+  "ok": true,
+  "result": {
+   "tool_id": "tool_2584904b20",
+   "version": 1
+  }
+ },
+ {
+  "tool": "mcp__workforce__create_agent",
+  "args": {
+   "name": "Tracker Reader",
+   "description": "Reads the task tracker workbook and returns clean rows plus counts by workstream.",
+   "system_prompt": "You are Tracker Reader. Input: tracker_path.\nSteps: 1. Call Read Task Tracker with tracker_path. 2. Call Workstream Rollup on the rows.\nOutput JSON: { \"rows\": [...], \"rollup\": {...}, \"row_count\": n }.\nIf the file is missing or has no header row, return FAILED with the path. Never invent a row or a value.",
+   "model": "haiku",
+   "knowledge_ids": []
+  },
+  "ok": true,
+  "result": {
+   "id": "agent_249282ea01",
+   "name": "Tracker Reader",
+   "description": "Reads the task tracker workbook and returns clean rows plus counts by workstream.",
+   "system_prompt": "You are Tracker Reader. Input: tracker_path.\nSteps: 1. Call Read Task Tracker with tracker_path. 2. Call Workstream Rollup on the rows.\nOutput JSON: { \"rows\": [...], \"rollup\": {...}, \"row_count\": n }.\nIf the file is missing or has no header row, return FAILED with the path. Never invent a row or a value.",
+   "model": "haiku",
+   "tool_ids": [],
+   "knowledge_ids": [],
+   "mcp_servers": [],
+   "actions": {},
+   "folder_id": null,
+   "settings": {},
+   "created_at": "2026-11-17T19:37:53.944Z",
+   "updated_at": "2026-11-17T19:37:53.944Z"
+  }
+ },
+ {
+  "tool": "mcp__workforce__attach_tools_to_agent",
+  "args": {
+   "agent_id": "agent_249282ea01",
+   "tool_ids": [
+    "tool_0352384a8d"
+   ]
+  },
+  "ok": true,
+  "result": {
+   "tools": [
+    {
+     "id": "tool_0352384a8d",
+     "name": "Workstream Rollup",
+     "action": {}
+    }
+   ],
+   "mcp_servers": []
+  }
+ },
+ {
+  "tool": "mcp__workforce__attach_mcp_server_to_agent",
+  "args": {
+   "agent_id": "agent_249282ea01",
+   "server_name": "workforce",
+   "tools": [
+    "excel_read_range"
+   ]
+  },
+  "ok": true,
+  "result": {
+   "tools": [
+    {
+     "id": "tool_0352384a8d",
+     "name": "Workstream Rollup",
+     "action": {}
+    }
+   ],
+   "mcp_servers": [
+    {
+     "server_name": "workforce",
+     "tools": [
+      "excel_read_range"
+     ],
+     "approvals": {}
+    }
+   ]
+  }
+ },
+ {
+  "tool": "mcp__workforce__create_agent",
+  "args": {
+   "name": "Status Analyst",
+   "description": "Judges progress, risks, and RAG status per workstream from the rows and the RAG rules.",
+   "system_prompt": "You are Status Analyst. Input: rows and rollup.\nSteps: 1. Call Report Template Lookup with query \"RAG rules\". 2. For each workstream apply only those rules.\nOutput, per workstream: name, done/total, overdue count, RAG (Red, Amber, Green) with the rule that set it, top 3 risks each citing task IDs.\nUse only facts from the rows. If a workstream has no tasks, say \"No tasks found\" instead of guessing.",
+   "model": "sonnet",
+   "knowledge_ids": [
+    "status_templates"
+   ]
+  },
+  "ok": true,
+  "result": {
+   "id": "agent_8d47d966f2",
+   "name": "Status Analyst",
+   "description": "Judges progress, risks, and RAG status per workstream from the rows and the RAG rules.",
+   "system_prompt": "You are Status Analyst. Input: rows and rollup.\nSteps: 1. Call Report Template Lookup with query \"RAG rules\". 2. For each workstream apply only those rules.\nOutput, per workstream: name, done/total, overdue count, RAG (Red, Amber, Green) with the rule that set it, top 3 risks each citing task IDs.\nUse only facts from the rows. If a workstream has no tasks, say \"No tasks found\" instead of guessing.",
+   "model": "sonnet",
+   "tool_ids": [],
+   "knowledge_ids": [
+    "status_templates"
+   ],
+   "mcp_servers": [],
+   "actions": {},
+   "folder_id": null,
+   "settings": {},
+   "created_at": "2026-11-17T19:37:53.948Z",
+   "updated_at": "2026-11-17T19:37:53.948Z"
+  }
+ },
+ {
+  "tool": "mcp__workforce__attach_tools_to_agent",
+  "args": {
+   "agent_id": "agent_8d47d966f2",
+   "tool_ids": [
+    "tool_2584904b20"
+   ]
+  },
+  "ok": true,
+  "result": {
+   "tools": [
+    {
+     "id": "tool_2584904b20",
+     "name": "Report Template Lookup",
+     "action": {}
+    }
+   ],
+   "mcp_servers": []
+  }
+ },
+ {
+  "tool": "mcp__workforce__create_agent",
+  "args": {
+   "name": "Report Writer",
+   "description": "Writes the weekly status report and saves it as a Word document; revises from reviewer issues.",
+   "system_prompt": "You are Report Writer. Input: analysis, week_ending, reports_folder, and on revision the reviewer's issues.\nSteps: 1. Call Report Template Lookup with query \"status report sections\". 2. Write the report in this order: Summary (one paragraph), Workstream status table, Risks and mitigations, Next week, Decisions needed. 3. Call Write Report Document with path <reports_folder>\\Weekly-Status_<week_ending>.docx.\nOutput: report text and the saved path. On revision, fix every numbered issue and list each under \"Revision notes\".\nNever invent a number, owner, or date that is not in the analysis.",
+   "model": "sonnet",
+   "knowledge_ids": [
+    "status_templates"
+   ]
+  },
+  "ok": true,
+  "result": {
+   "id": "agent_0dc1ae69c9",
+   "name": "Report Writer",
+   "description": "Writes the weekly status report and saves it as a Word document; revises from reviewer issues.",
+   "system_prompt": "You are Report Writer. Input: analysis, week_ending, reports_folder, and on revision the reviewer's issues.\nSteps: 1. Call Report Template Lookup with query \"status report sections\". 2. Write the report in this order: Summary (one paragraph), Workstream status table, Risks and mitigations, Next week, Decisions needed. 3. Call Write Report Document with path <reports_folder>\\Weekly-Status_<week_ending>.docx.\nOutput: report text and the saved path. On revision, fix every numbered issue and list each under \"Revision notes\".\nNever invent a number, owner, or date that is not in the analysis.",
+   "model": "sonnet",
+   "tool_ids": [],
+   "knowledge_ids": [
+    "status_templates"
+   ],
+   "mcp_servers": [],
+   "actions": {},
+   "folder_id": null,
+   "settings": {},
+   "created_at": "2026-11-17T19:37:53.950Z",
+   "updated_at": "2026-11-17T19:37:53.951Z"
+  }
+ },
+ {
+  "tool": "mcp__workforce__attach_tools_to_agent",
+  "args": {
+   "agent_id": "agent_0dc1ae69c9",
+   "tool_ids": [
+    "tool_2584904b20"
+   ]
+  },
+  "ok": true,
+  "result": {
+   "tools": [
+    {
+     "id": "tool_2584904b20",
+     "name": "Report Template Lookup",
+     "action": {}
+    }
+   ],
+   "mcp_servers": []
+  }
+ },
+ {
+  "tool": "mcp__workforce__attach_mcp_server_to_agent",
+  "args": {
+   "agent_id": "agent_0dc1ae69c9",
+   "server_name": "workforce",
+   "tools": [
+    "word_create_document"
+   ]
+  },
+  "ok": true,
+  "result": {
+   "tools": [
+    {
+     "id": "tool_2584904b20",
+     "name": "Report Template Lookup",
+     "action": {}
+    }
+   ],
+   "mcp_servers": [
+    {
+     "server_name": "workforce",
+     "tools": [
+      "word_create_document"
+     ],
+     "approvals": {}
+    }
+   ]
+  }
+ },
+ {
+  "tool": "mcp__workforce__update_agent_mcp_server_approvals",
+  "args": {
+   "agent_id": "agent_0dc1ae69c9",
+   "server_name": "workforce",
+   "approvals": {
+    "word_create_document": "ask-first"
+   }
+  },
+  "ok": true,
+  "result": {
+   "server_name": "workforce",
+   "tools": [
+    "word_create_document"
+   ],
+   "approvals": {
+    "word_create_document": "ask-first"
+   }
+  }
+ },
+ {
+  "tool": "mcp__workforce__create_agent",
+  "args": {
+   "name": "Report Reviewer",
+   "description": "Checks the report against the analysis and the template. Returns PASS or REVISE.",
+   "system_prompt": "You are Report Reviewer. Input: report text and analysis.\nMatch every number, RAG value, and task ID in the report to the analysis. Call Report Template Lookup to confirm all 5 template sections exist in order.\nOutput: Verdict: PASS or REVISE, then numbered issues (location, problem, exact fix).\nPASS only with zero number mismatches and zero missing sections. Never add content yourself.",
+   "model": "sonnet",
+   "knowledge_ids": [
+    "status_templates"
+   ]
+  },
+  "ok": true,
+  "result": {
+   "id": "agent_302d08d5ea",
+   "name": "Report Reviewer",
+   "description": "Checks the report against the analysis and the template. Returns PASS or REVISE.",
+   "system_prompt": "You are Report Reviewer. Input: report text and analysis.\nMatch every number, RAG value, and task ID in the report to the analysis. Call Report Template Lookup to confirm all 5 template sections exist in order.\nOutput: Verdict: PASS or REVISE, then numbered issues (location, problem, exact fix).\nPASS only with zero number mismatches and zero missing sections. Never add content yourself.",
+   "model": "sonnet",
+   "tool_ids": [],
+   "knowledge_ids": [
+    "status_templates"
+   ],
+   "mcp_servers": [],
+   "actions": {},
+   "folder_id": null,
+   "settings": {},
+   "created_at": "2026-11-17T19:37:53.955Z",
+   "updated_at": "2026-11-17T19:37:53.955Z"
+  }
+ },
+ {
+  "tool": "mcp__workforce__attach_tools_to_agent",
+  "args": {
+   "agent_id": "agent_302d08d5ea",
+   "tool_ids": [
+    "tool_2584904b20"
+   ]
+  },
+  "ok": true,
+  "result": {
+   "tools": [
+    {
+     "id": "tool_2584904b20",
+     "name": "Report Template Lookup",
+     "action": {}
+    }
+   ],
+   "mcp_servers": []
+  }
+ },
+ {
+  "tool": "mcp__workforce__create_agent",
+  "args": {
+   "name": "Delivery Agent",
+   "description": "Creates the review-only Outlook draft to the manager. Never sends.",
+   "system_prompt": "You are Delivery Agent. Input: docx path, summary, manager_email.\nCall Create Review Email Draft with subject \"Weekly status: week ending <date>\", the summary as body, and the docx path as a line in the body.\nOutput: entry_id and subject. Never call any send tool. If manager_email is missing, return STATUS: NEEDS_INPUT.",
+   "model": "haiku",
+   "knowledge_ids": []
+  },
+  "ok": true,
+  "result": {
+   "id": "agent_b6f6e571b5",
+   "name": "Delivery Agent",
+   "description": "Creates the review-only Outlook draft to the manager. Never sends.",
+   "system_prompt": "You are Delivery Agent. Input: docx path, summary, manager_email.\nCall Create Review Email Draft with subject \"Weekly status: week ending <date>\", the summary as body, and the docx path as a line in the body.\nOutput: entry_id and subject. Never call any send tool. If manager_email is missing, return STATUS: NEEDS_INPUT.",
+   "model": "haiku",
+   "tool_ids": [],
+   "knowledge_ids": [],
+   "mcp_servers": [],
+   "actions": {},
+   "folder_id": null,
+   "settings": {},
+   "created_at": "2026-11-17T19:37:53.958Z",
+   "updated_at": "2026-11-17T19:37:53.958Z"
+  }
+ },
+ {
+  "tool": "mcp__workforce__attach_mcp_server_to_agent",
+  "args": {
+   "agent_id": "agent_b6f6e571b5",
+   "server_name": "workforce",
+   "tools": [
+    "outlook_create_draft"
+   ]
+  },
+  "ok": true,
+  "result": {
+   "tools": [],
+   "mcp_servers": [
+    {
+     "server_name": "workforce",
+     "tools": [
+      "outlook_create_draft"
+     ],
+     "approvals": {}
+    }
+   ]
+  }
+ },
+ {
+  "tool": "mcp__workforce__update_agent_mcp_server_approvals",
+  "args": {
+   "agent_id": "agent_b6f6e571b5",
+   "server_name": "workforce",
+   "approvals": {
+    "outlook_create_draft": "always-ask"
+   }
+  },
+  "ok": true,
+  "result": {
+   "server_name": "workforce",
+   "tools": [
+    "outlook_create_draft"
+   ],
+   "approvals": {
+    "outlook_create_draft": "always-ask"
+   }
+  }
+ },
+ {
+  "tool": "mcp__workforce__create_workforce",
+  "args": {
+   "name": "Weekly Status Coordinator",
+   "description": "You are the Weekly Status Coordinator. You never write report content yourself.\nInputs: tracker_path, week_ending, manager_email, reports_folder.\nIf tracker_path or manager_email is missing, reply STATUS: NEEDS_INPUT and name each missing field. Ask once.\nRoute in this order:\n1. Tracker Reader: send tracker_path. Receive rows and the workstream rollup.\n2. Status Analyst: send the rows and rollup. Receive progress, risks, and RAG status per workstream.\n3. Report Writer: send the analysis and week_ending. Receive the report text and the saved .docx path.\n4. Report Reviewer: send the report text and the analysis. Receive PASS or REVISE with numbered issues.\n   If REVISE, send the issues back to Report Writer. Maximum 2 rounds. After 2 REVISE rounds, stop with STATUS: UNRESOLVED.\n5. Delivery Agent: send the .docx path, the one-paragraph summary, and manager_email. Receive the draft entry_id.\nIf any agent returns FAILED or an error, stop, report FAILED with the agent name and its error, and save nothing further.\nThe Delivery Agent's draft waits for human approval; nothing is ever sent.\nFinal reply: one line per step with its status, the link to the saved .docx, and the Outlook draft entry_id.",
+   "nodes": [
+    {
+     "id": "reader",
+     "agent_id": "agent_249282ea01"
+    },
+    {
+     "id": "analyst",
+     "agent_id": "agent_8d47d966f2"
+    },
+    {
+     "id": "drafter",
+     "agent_id": "agent_0dc1ae69c9"
+    },
+    {
+     "id": "reviewer",
+     "agent_id": "agent_302d08d5ea"
+    },
+    {
+     "id": "delivery",
+     "agent_id": "agent_b6f6e571b5"
+    }
+   ],
+   "edges": [
+    {
+     "from": "reader",
+     "to": "analyst"
+    },
+    {
+     "from": "analyst",
+     "to": "drafter"
+    },
+    {
+     "from": "drafter",
+     "to": "reviewer"
+    },
+    {
+     "from": "reviewer",
+     "to": "drafter",
+     "condition": "REVISE"
+    },
+    {
+     "from": "reviewer",
+     "to": "delivery"
+    }
+   ]
+  },
+  "ok": true,
+  "result": {
+   "id": "wf_3932fc54d6",
+   "name": "Weekly Status Coordinator",
+   "description": "You are the Weekly Status Coordinator. You never write report content yourself.\nInputs: tracker_path, week_ending, manager_email, reports_folder.\nIf tracker_path or manager_email is missing, reply STATUS: NEEDS_INPUT and name each missing field. Ask once.\nRoute in this order:\n1. Tracker Reader: send tracker_path. Receive rows and the workstream rollup.\n2. Status Analyst: send the rows and rollup. Receive progress, risks, and RAG status per workstream.\n3. Report Writer: send the analysis and week_ending. Receive the report text and the saved .docx path.\n4. Report Reviewer: send the report text and the analysis. Receive PASS or REVISE with numbered issues.\n   If REVISE, send the issues back to Report Writer. Maximum 2 rounds. After 2 REVISE rounds, stop with STATUS: UNRESOLVED.\n5. Delivery Agent: send the .docx path, the one-paragraph summary, and manager_email. Receive the draft entry_id.\nIf any agent returns FAILED or an error, stop, report FAILED with the agent name and its error, and save nothing further.\nThe Delivery Agent's draft waits for human approval; nothing is ever sent.\nFinal reply: one line per step with its status, the link to the saved .docx, and the Outlook draft entry_id.",
+   "nodes": [
+    {
+     "id": "reader",
+     "agent_id": "agent_249282ea01"
+    },
+    {
+     "id": "analyst",
+     "agent_id": "agent_8d47d966f2"
+    },
+    {
+     "id": "drafter",
+     "agent_id": "agent_0dc1ae69c9"
+    },
+    {
+     "id": "reviewer",
+     "agent_id": "agent_302d08d5ea"
+    },
+    {
+     "id": "delivery",
+     "agent_id": "agent_b6f6e571b5"
+    }
+   ],
+   "edges": [
+    {
+     "from": "reader",
+     "to": "analyst"
+    },
+    {
+     "from": "analyst",
+     "to": "drafter"
+    },
+    {
+     "from": "drafter",
+     "to": "reviewer"
+    },
+    {
+     "from": "reviewer",
+     "to": "drafter",
+     "condition": "REVISE"
+    },
+    {
+     "from": "reviewer",
+     "to": "delivery"
+    }
+   ],
+   "folder_id": null,
+   "created_at": "2026-11-17T19:37:53.961Z",
+   "updated_at": "2026-11-17T19:37:53.961Z"
+  }
+ },
+ {
+  "tool": "mcp__workforce__create_trigger",
+  "args": {
+   "target_id": "wf_3932fc54d6",
+   "target_type": "workforce",
+   "type": "schedule",
+   "config": {
+    "cron": "0 15 * * 5",
+    "timezone": "America/New_York"
+   },
+   "message": "Run the weekly status report for this week."
+  },
+  "ok": true,
+  "result": {
+   "id": "trg_e32cc85708",
+   "target_id": "wf_3932fc54d6",
+   "target_type": "workforce",
+   "type": "schedule",
+   "config": {
+    "cron": "0 15 * * 5",
+    "timezone": "America/New_York"
+   },
+   "message": "Run the weekly status report for this week.",
+   "enabled": true,
+   "last_fired_at": null,
+   "created_at": "2026-11-17T19:37:53.962Z",
+   "fire_command": "claude -p \"Use the workforce MCP server: call trigger_workforce with workforce_id wf_3932fc54d6 and wait true and message: Run the weekly status report for this week.\" --allowedTools mcp__workforce__trigger_workforce",
+   "setup": "This server does not run in the background. Add a cron line (0 15 * * 5 cd <project> && claude -p \"Use the workforce MCP server: call trigger_workforce with workforce_id wf_3932fc54d6 and wait true and message: Run the weekly status report for this week.\" --allowedTools mcp__workforce__trigger_workforce) or a Claude Code scheduled task that runs fire_command."
+  }
+ },
+ {
+  "tool": "mcp__workforce__create_eval_test_set",
+  "args": {
+   "name": "Weekly status workforce",
+   "target_id": "wf_3932fc54d6"
+  },
+  "ok": true,
+  "result": {
+   "id": "tset_59f8562e54",
+   "name": "Weekly status workforce",
+   "target_id": "wf_3932fc54d6",
+   "description": "",
+   "created_at": "2026-11-17T19:37:53.963Z"
+  }
+ },
+ {
+  "tool": "mcp__workforce__create_eval_test_case",
+  "args": {
+   "test_set_id": "tset_59f8562e54",
+   "name": "e2e: Tracker with 3 workstreams and 24 tasks,",
+   "input": "Tracker with 3 workstreams and 24 tasks, manager_email set",
+   "expected": "every handoff runs once; exactly 1 .docx in reports; exactly 1 Outlook draft; 0 emails sent"
+  },
+  "ok": true,
+  "result": {
+   "id": "tcase_8ad24a3075",
+   "test_set_id": "tset_59f8562e54",
+   "name": "e2e: Tracker with 3 workstreams and 24 tasks,",
+   "input": "Tracker with 3 workstreams and 24 tasks, manager_email set",
+   "scenario": "",
+   "expected": "every handoff runs once; exactly 1 .docx in reports; exactly 1 Outlook draft; 0 emails sent",
+   "rules": [],
+   "simulation": {},
+   "created_at": "2026-11-17T19:37:53.964Z"
+  }
+ },
+ {
+  "tool": "mcp__workforce__set_eval_test_case_simulation_config",
+  "args": {
+   "test_case_id": "tcase_8ad24a3075",
+   "config": {
+    "simulate_tools": [
+     "outlook_create_draft",
+     "word_create_document"
+    ]
+   }
+  },
+  "ok": true,
+  "result": {
+   "id": "tcase_8ad24a3075",
+   "test_set_id": "tset_59f8562e54",
+   "name": "e2e: Tracker with 3 workstreams and 24 tasks,",
+   "input": "Tracker with 3 workstreams and 24 tasks, manager_email set",
+   "scenario": "",
+   "expected": "every handoff runs once; exactly 1 .docx in reports; exactly 1 Outlook draft; 0 emails sent",
+   "rules": [],
+   "simulation": {
+    "simulate_tools": [
+     "outlook_create_draft",
+     "word_create_document"
+    ]
+   },
+   "created_at": "2026-11-17T19:37:53.964Z"
+  }
+ },
+ {
+  "tool": "mcp__workforce__create_eval_test_case",
+  "args": {
+   "test_set_id": "tset_59f8562e54",
+   "name": "loop: Report Writer output missing the Risks s",
+   "input": "Report Writer output missing the Risks section",
+   "expected": "Reviewer returns REVISE once, the second draft passes, round count = 2"
+  },
+  "ok": true,
+  "result": {
+   "id": "tcase_96aaefd391",
+   "test_set_id": "tset_59f8562e54",
+   "name": "loop: Report Writer output missing the Risks s",
+   "input": "Report Writer output missing the Risks section",
+   "scenario": "",
+   "expected": "Reviewer returns REVISE once, the second draft passes, round count = 2",
+   "rules": [],
+   "simulation": {},
+   "created_at": "2026-11-17T19:37:53.965Z"
+  }
+ },
+ {
+  "tool": "mcp__workforce__set_eval_test_case_simulation_config",
+  "args": {
+   "test_case_id": "tcase_96aaefd391",
+   "config": {
+    "simulate_tools": [
+     "outlook_create_draft",
+     "word_create_document"
+    ]
+   }
+  },
+  "ok": true,
+  "result": {
+   "id": "tcase_96aaefd391",
+   "test_set_id": "tset_59f8562e54",
+   "name": "loop: Report Writer output missing the Risks s",
+   "input": "Report Writer output missing the Risks section",
+   "scenario": "",
+   "expected": "Reviewer returns REVISE once, the second draft passes, round count = 2",
+   "rules": [],
+   "simulation": {
+    "simulate_tools": [
+     "outlook_create_draft",
+     "word_create_document"
+    ]
+   },
+   "created_at": "2026-11-17T19:37:53.965Z"
+  }
+ },
+ {
+  "tool": "mcp__workforce__create_eval_test_case",
+  "args": {
+   "test_set_id": "tset_59f8562e54",
+   "name": "failure: tracker_path points to a missing file",
+   "input": "tracker_path points to a missing file",
+   "expected": "reply contains FAILED and Tracker Reader; 0 .docx files and 0 drafts created"
+  },
+  "ok": true,
+  "result": {
+   "id": "tcase_49369b63dd",
+   "test_set_id": "tset_59f8562e54",
+   "name": "failure: tracker_path points to a missing file",
+   "input": "tracker_path points to a missing file",
+   "scenario": "",
+   "expected": "reply contains FAILED and Tracker Reader; 0 .docx files and 0 drafts created",
+   "rules": [],
+   "simulation": {},
+   "created_at": "2026-11-17T19:37:53.967Z"
+  }
+ },
+ {
+  "tool": "mcp__workforce__set_eval_test_case_simulation_config",
+  "args": {
+   "test_case_id": "tcase_49369b63dd",
+   "config": {
+    "simulate_tools": [
+     "outlook_create_draft",
+     "word_create_document"
+    ]
+   }
+  },
+  "ok": true,
+  "result": {
+   "id": "tcase_49369b63dd",
+   "test_set_id": "tset_59f8562e54",
+   "name": "failure: tracker_path points to a missing file",
+   "input": "tracker_path points to a missing file",
+   "scenario": "",
+   "expected": "reply contains FAILED and Tracker Reader; 0 .docx files and 0 drafts created",
+   "rules": [],
+   "simulation": {
+    "simulate_tools": [
+     "outlook_create_draft",
+     "word_create_document"
+    ]
+   },
+   "created_at": "2026-11-17T19:37:53.967Z"
+  }
+ },
+ {
+  "tool": "mcp__workforce__create_eval_test_case",
+  "args": {
+   "test_set_id": "tset_59f8562e54",
+   "name": "missing: manager_email empty",
+   "input": "manager_email empty",
+   "expected": "reply contains STATUS: NEEDS_INPUT"
+  },
+  "ok": true,
+  "result": {
+   "id": "tcase_e88cbfda0c",
+   "test_set_id": "tset_59f8562e54",
+   "name": "missing: manager_email empty",
+   "input": "manager_email empty",
+   "scenario": "",
+   "expected": "reply contains STATUS: NEEDS_INPUT",
+   "rules": [],
+   "simulation": {},
+   "created_at": "2026-11-17T19:37:53.969Z"
+  }
+ },
+ {
+  "tool": "mcp__workforce__set_eval_test_case_simulation_config",
+  "args": {
+   "test_case_id": "tcase_e88cbfda0c",
+   "config": {
+    "simulate_tools": [
+     "outlook_create_draft",
+     "word_create_document"
+    ]
+   }
+  },
+  "ok": true,
+  "result": {
+   "id": "tcase_e88cbfda0c",
+   "test_set_id": "tset_59f8562e54",
+   "name": "missing: manager_email empty",
+   "input": "manager_email empty",
+   "scenario": "",
+   "expected": "reply contains STATUS: NEEDS_INPUT",
+   "rules": [],
+   "simulation": {
+    "simulate_tools": [
+     "outlook_create_draft",
+     "word_create_document"
+    ]
+   },
+   "created_at": "2026-11-17T19:37:53.969Z"
+  }
+ },
+ {
+  "tool": "mcp__workforce__publish_agent",
+  "args": {
+   "agent_id": "agent_249282ea01",
+   "note": "Stage 3 build"
+  },
+  "ok": true,
+  "result": {
+   "agent_id": "agent_249282ea01",
+   "version": 1,
+   "agent_file": "/home/claude/work/realtest/project/.claude/agents/tracker-reader.md"
+  }
+ },
+ {
+  "tool": "mcp__workforce__publish_agent",
+  "args": {
+   "agent_id": "agent_8d47d966f2",
+   "note": "Stage 3 build"
+  },
+  "ok": true,
+  "result": {
+   "agent_id": "agent_8d47d966f2",
+   "version": 1,
+   "agent_file": "/home/claude/work/realtest/project/.claude/agents/status-analyst.md"
+  }
+ },
+ {
+  "tool": "mcp__workforce__publish_agent",
+  "args": {
+   "agent_id": "agent_0dc1ae69c9",
+   "note": "Stage 3 build"
+  },
+  "ok": true,
+  "result": {
+   "agent_id": "agent_0dc1ae69c9",
+   "version": 1,
+   "agent_file": "/home/claude/work/realtest/project/.claude/agents/report-writer.md"
+  }
+ },
+ {
+  "tool": "mcp__workforce__publish_agent",
+  "args": {
+   "agent_id": "agent_302d08d5ea",
+   "note": "Stage 3 build"
+  },
+  "ok": true,
+  "result": {
+   "agent_id": "agent_302d08d5ea",
+   "version": 1,
+   "agent_file": "/home/claude/work/realtest/project/.claude/agents/report-reviewer.md"
+  }
+ },
+ {
+  "tool": "mcp__workforce__publish_agent",
+  "args": {
+   "agent_id": "agent_b6f6e571b5",
+   "note": "Stage 3 build"
+  },
+  "ok": true,
+  "result": {
+   "agent_id": "agent_b6f6e571b5",
+   "version": 1,
+   "agent_file": "/home/claude/work/realtest/project/.claude/agents/delivery-agent.md"
+  }
+ },
+ {
+  "tool": "mcp__workforce__publish_workforce",
+  "args": {
+   "workforce_id": "wf_3932fc54d6",
+   "note": "Stage 3 build"
+  },
+  "ok": true,
+  "result": {
+   "workforce_id": "wf_3932fc54d6",
+   "version": 1
+  }
+ },
+ {
+  "tool": "mcp__workforce__trigger_workforce",
+  "args": {
+   "workforce_id": "wf_3932fc54d6",
+   "message": "Tracker with 3 workstreams and 24 tasks, manager_email set",
+   "wait": true
+  },
+  "ok": true,
+  "result": {
+   "task_id": "wtask_e754f07b97",
+   "status": "failed",
+   "path": [
+    {
+     "node_id": "reader",
+     "agent_id": "agent_249282ea01",
+     "task_id": "task_ce6e139723",
+     "status": "failed"
+    }
+   ],
+   "error": {
+    "code": "CLAUDE_FAILED",
+    "message": "Node reader failed: Authentication error · This may be a temporary network issue, please try again"
+   }
+  }
+ },
+ {
+  "tool": "mcp__workforce__com_host_check",
+  "args": {},
+  "ok": false,
+  "result": {
+   "error": "UNSUPPORTED_HOST",
+   "message": "Linux 6.18.44-fc-v553 (linux) has no Office COM.",
+   "hint": "Run the server on Windows with desktop Office and classic Outlook."
+  }
+ }
+]

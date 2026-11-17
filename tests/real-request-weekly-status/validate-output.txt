@@ -1,0 +1,5 @@
+WARN t_readtracker: step read uses mcp__workforce__excel_read_range: confirm with get_transformation (G1)
+WARN t_writedoc: step save uses mcp__workforce__word_create_document: confirm with get_transformation (G1)
+WARN t_draftemail: step draft uses mcp__workforce__outlook_create_draft: confirm with get_transformation (G1)
+
+5 agents, 5 tools, 0 FAIL, 3 WARN
