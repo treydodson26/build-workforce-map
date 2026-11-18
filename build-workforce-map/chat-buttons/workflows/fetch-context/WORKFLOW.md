@@ -1,13 +1,13 @@
 ---
 name: "fetch-context"
-description: "Parse the whole chat with NLTK, then dispatch a fetch-context agent that searches every knowledge base, writes the context engineering table to the chat's Claude Doc, and returns a short report before create-spec. Use when Trey taps Fetch context or says \"Run fetch-context\"."
+description: "Parse the whole chat with NLTK, then dispatch a fetch-context agent that searches every connector available in the session, writes the context engineering table to the chat's Claude Doc, and returns a short report before create-spec. Use when Trey taps Fetch context or says \"Run fetch-context\"."
 ---
 
 # Fetch All Context
 
 ## Purpose
 
-Extract and parse the entire current chat, pull its keywords and entities with NLTK, search every source where Trey keeps context, write a context engineering table to the Context tab of the chat's Claude Doc, and hand the table to create-spec. Do not edit any source, and do not write the spec, the plan, or the deliverables here; create-spec, create-plan, and subagent-driven-development write those into the same chat doc.
+Extract and parse the entire current chat, pull its keywords and entities with NLTK, search every connector and tool available in this session, write a context engineering table to the Context tab of the chat's Claude Doc, and hand the table to create-spec. Do not edit any source, and do not write the spec, the plan, or the deliverables here; create-spec, create-plan, and subagent-driven-development write those into the same chat doc.
 Execute the Workflow and return the Report.
 
 ## Run mode: agent
@@ -27,7 +27,7 @@ CHAT_DOC: The Claude Doc for this chat, titled `Chat_<chat title>_<MM_DD_YYYY>` 
 SPEC_SCRIPTS: The `scripts/` folder of `chat-buttons/workflows/create-spec/` in the build-workforce-map skill. If a separate `create-spec` skill is installed, its `scripts/` folder also works.
 WORK_DIR: `fetch-context/` in the working directory
 MAX_EMPTY_QUERIES: 3
-SOURCE_COUNT: 11
+SOURCES: every connector, MCP server, and built-in tool available in this session that can read context; this varies by machine and account, so discover it at run time
 ACTIVITY_LOG: the **Claude Activity Log** doc (find it by title; see `INSTALL.md`, Doc registry)
 DEFAULT_REPO: treydodson26/Master-Agentic-OS
 
@@ -45,21 +45,15 @@ DEFAULT_REPO: treydodson26/Master-Agentic-OS
 - Never ask Trey a question. If the topic is unclear, use the best reading and state it at the top of the Context tab.
 - Put each [N] citation right after the claim it supports. Stack as [1][3]. Never cite a source that does not support the claim.
 - Write short declarative sentences under 15 words. Name the real actor in each sentence. Make the Context tab readable with zero prior context.
-- Reuse these existing skills where they fit: `contextualize`, `generate-context`, `review-chat-context`, `extract-background-facts`, `notebooklm-cli`, `enterprise-search:search`.
+- Do not assume any named connector, skill, or memory file exists. Use only what this session actually has.
 - Keep every Template heading as written; replace every angle-bracket slot.
 
 ## Relevant Files
 
 ### Files to Read
 
-IMPORTANT: Load every file below into context with @ before you start any task. The task cannot be completed without them. Do not edit them.
+IMPORTANT: Load the file below into context with @ before you start any task. Do not edit it.
 
-- @/areas/master-context-database.md — file-catalog Supabase, Watson, the Drive chat knowledge base, and the private-chat-archive repo
-- @/areas/drive-vault.md — workspace folder vault layout and naming
-- @/areas/agentic-os-knowledge-base.md — Agentic OS Knowledge Base doc link and structure
-- @/areas/notebooklm-remote-access.md — NotebookLM master context notebook
-- @/areas/master-agentic-os-repo.md — default repo
-- @/areas/generate-context-skill.md — the source table columns this skill's context engineering table follows
 - @SPEC_SCRIPTS/turns_to_jsonl.py and @SPEC_SCRIPTS/parse_transcript.py — the NLTK chat parser
 
 ### Files to Update
@@ -169,23 +163,12 @@ if __name__ == "__main__":
 4. Task 4: Open the chat doc
     - #mcp__claude-artifacts__list_artifacts with `query` set to `Chat_<chat title>`. Use today's match as CHAT_DOC.
     - If none exists, #mcp__claude-artifacts__create_from_type with the Docs type, then #mcp__Claude_Docs__batch to create tabs Context, Spec, Plan, Deliverables, and Activity log.
-5. Task 5: Search every source
+5. Task 5: Search every available source
     <source_search>
-    For each source in this table, query the top `search_terms`:
-
-    | # | Source | Search |
-    |---|---|---|
-    | 1 | Memory | #mcp__memory__memory_read @/areas/master-context-database.md @/areas/drive-vault.md @/areas/agentic-os-knowledge-base.md @/areas/notebooklm-remote-access.md @/areas/master-agentic-os-repo.md @/areas/generate-context-skill.md in one call, plus every file whose aliases match an entity |
-    | 2 | Past claude.ai chats | #mcp__claude_ai__conversation_search with 2 to 4 content-word queries; #mcp__claude_ai__recent_chats when the topic is time-bound; #mcp__claude_ai__read_conversation on the best 1 to 2 hits |
-    | 3 | file-catalog Supabase | #mcp__Supabase__list_projects, #mcp__Supabase__list_tables, then #mcp__Supabase__execute_sql with ILIKE on title and text columns |
-    | 5 | GitHub | #Bash `gh search code` and `gh search issues` scoped to `treydodson26` (@DEFAULT_REPO and private-chat-archive) |
-    | 6 | Claude Docs | #mcp__Claude_Docs__read with a search view on Agentic OS Knowledge Base, Claude Activity Log, Claude.AI Outputs, and Notes |
-    | 7 | Other artifacts | #mcp__claude-artifacts__list_artifacts with `query` set to each top entity |
-    | 8 | ClickUp TREY PROJECTS | #mcp__ClickUp__clickup_search per term |
-    | 9 | Meeting transcripts | #mcp__Otter_ai__otter_search and #mcp__Fireflies__fireflies_search |
-    | 10 | Email and Slack | #mcp__ms365__outlook_email_search and #mcp__Slack__slack_search_public_and_private |
-    | 11 | NotebookLM | #Skill `notebooklm-cli`, if the CLI is reachable |
-
+    - List the connector, MCP, and built-in tools available in this session. Load all deferred tools in one #ToolSearch call.
+    - Search with every available tool that can read context. Examples are past chats, memory, email, chat apps, documents, files, task trackers, meeting transcripts, and code repos.
+    - Do not assume any specific connector exists. Search only with tools this session actually has.
+    - Run 2 to 4 queries per source with the top `search_terms`.
     - Record one context engineering row per useful hit, and the queries run, hits used, and status for the source.
     - If a query errors, fix the arguments and retry, up to 3 times.
     - If it still fails, mark the source Blocked with the reason and move on.
@@ -196,7 +179,7 @@ if __name__ == "__main__":
     - #mcp__Claude_Docs__update @CHAT_DOC Context tab from the Template section. Replace the tab's content if it exists.
     - #mcp__Claude_Docs__read the tab back and confirm it rendered.
     - Confirm every DOC row has a link and every [N] maps to a References entry.
-    - Confirm Sources searched lists all SOURCE_COUNT sources with a status.
+    - Confirm Sources searched lists every source the agent found in this session, each with a status.
     - Confirm no source was written to.
     - If a check fails, fix and retry, up to 3 times.
     - If it still fails, log the error and move on.
@@ -224,10 +207,10 @@ Facts:
 - The full chat is in <WORK_DIR>/input/turns.json. Do not call read_conversation.
 - Chat title: <title>. Chat URL: <url>. Date: <MM_DD_YYYY>. TOPIC_NOTE: <note or none>.
 - Topic reading: <one line>.
-- The @/areas/*.md files are memory files. Read them with mcp__memory__memory_read in one call.
+- Search only with the connectors and tools available in this session. Do not assume any specific one exists.
 - Load Docs guidance first: mcp__Claude_Docs__guide with topic.index, topic.editing, topic.tabs.
 - Today's Claude Activity Log tab is in the Claude Activity Log doc (find it by title; see `INSTALL.md`, Doc registry). Append your entry at the end of the MM_DD_YYYY tab.
-- Use at most 2 queries per source for sources 8 to 11.
+- Use at most 4 queries per source.
 - Treat every source as read-only. Never ask a question.
 
 Return the Output Structure fields in under 250 words. Include the Context tab link and any check that failed.
@@ -271,7 +254,7 @@ chat_doc: Chat_Failure Button Agent_11_14_2026 (existing), Context tab written
 parse: 40 turns, 61 user units, 212 assistant units
 search_terms: Failure; Master-Agentic-OS; failure log; test case; FAIL-001; Perplexity; Claude Docs; ...
 context_rows: 18 (DOC-001 to DOC-018)
-sources_with_hits: 7 of 11; nothing_relevant: Otter, Fireflies, Slack; blocked: NotebookLM (CLI not reachable)
+sources_with_hits: 4 of 6 available; nothing_relevant: Outlook; blocked: SharePoint (authorization error)
 handoff: create-spec started with the Context tab link
 status: In progress
 </output>
@@ -291,10 +274,10 @@ status: Blocked
 - `parse`: object with turn count, user units, assistant units
 - `search_terms`: list of strings, at most 25
 - `context_rows`: integer, plus the DOC-ID range
-- `sources_with_hits`: integer 0 to 11, plus names; `nothing_relevant`: list; `blocked`: list of `{source, reason, fix}`
+- `sources_with_hits`: integer, out of the sources available in this session, plus names; `nothing_relevant`: list; `blocked`: list of `{source, reason, fix}`
 - `handoff`: `create-spec started` or the reason it did not start
 - `status`: one of Complete, In progress, Waiting for your decision, Blocked, Failed
 
 ## Report
 
-Send Trey's standard reply: the six buttons first, then an H1 title, Status, and an Outcome. Status is "In progress" while create-spec, create-plan, and execution run. The Outcome names the topic, links CHAT_DOC and its Context tab in bold, gives the row count and the count of sources with hits, names each Blocked source with its fix, and says create-spec has started. End with the bold activity log link. Never ask a question.
+Send Trey's standard reply: the eight buttons first, then an H1 title, Status, and an Outcome. Status is "In progress" while create-spec, create-plan, and execution run. The Outcome names the topic, links CHAT_DOC and its Context tab in bold, gives the row count and the count of sources with hits, names each Blocked source with its fix, and says create-spec has started. End with the bold activity log link. Never ask a question.
